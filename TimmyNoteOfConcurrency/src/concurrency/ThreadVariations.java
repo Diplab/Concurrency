@@ -34,6 +34,7 @@ class InnerRunnable1 {
     }
 
     private int countDown = 5;
+    @SuppressWarnings("unused")
     private Inner inner;
 
     public InnerRunnable1(String name) {
@@ -96,6 +97,7 @@ class InnerThread1 {
     }
 
     private int countDown = 5;
+    @SuppressWarnings("unused")
     private Inner inner;
 
     public InnerThread1(String name) {
