@@ -3,7 +3,7 @@ package concurrency;
 import util.Fibonacci;
 
 public class Practice2 {
-    private static class MyRunnable implements Runnable {
+    static class MyRunnable implements Runnable {
 	final int num;
 	static int count = 0;
 	int id = count++;

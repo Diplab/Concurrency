@@ -1,7 +1,7 @@
 package concurrency;
 
 public class Practice1 {
-    private static class MyRunnable implements Runnable {
+    static class MyRunnable implements Runnable {
 	static int count = 0;
 	int id = count++;
 
