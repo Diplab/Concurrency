@@ -1,7 +1,5 @@
 package concurrency;
 
-import static org.junit.Assert.*;
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
