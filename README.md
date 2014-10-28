@@ -8,12 +8,13 @@ Concurrency
 	+ [Thread生命週期](#Thread生命週期)	
 	+ [Tread優先權](#Thread優先權)
 	+ [Thread的使用方法](#Thread的使用方法)
-		*[繼承Thread類別](#繼承Thread類別)
-		*[實做Runnable介面](#實做Runnable介面)
+		* [繼承Thread類別](#繼承Thread類別)
+		* [實做Runnable介面](#實做Runnable介面)
 	+ [Daemon執行緒](#Daemon執行緒)
 	+ [Thread的加入(Join)](#Thread的加入(Join))
 	+ [Thread的停止](#Thread的停止)
 	+ [ThreadGroup](#ThreadGroup)
+	+ [使用Executors](#使用Executors)
 	
 - [參考文獻](#參考文獻)
 
@@ -29,10 +30,12 @@ Concurrency
 
 Program : 一群程式碼的集合，用以解決特定的問題。以物件導向的觀念來類比，相當於Class。
 
+
 Process : Program載入記憶體後所產生的可執行檔，一個Program可以同時執行多次,產生多個Process。以物件導向的觀念來類比，相當於Object。
 每一個process由以下兩個項組成：
 - 一個Memory Space。相當於Object的variable,不同Process的Memory Space也不同,彼此看不到對方的Memory Space。
 - 一個以上的Thread。Thread代表從某個起始點開始(例如main),到目前為止所有函數的呼叫路徑,以及這些呼叫路徑上所用到的區域變數。
+
 
 Thread : 又稱為(Lightweight Process)，是process裡單一而連續的控制流程(flow of control)，一個process可以同時包含多個thread，稱為multi-thread
 也就是說一個程式可同時進行多個不同的子流程，每個子流程可以得到一小段程式的執行時間，每執行完一個thread就跳下一個thread，
@@ -40,6 +43,7 @@ Thread : 又稱為(Lightweight Process)，是process裡單一而連續的控制�
 每一個thread由以下兩項組成：
 - Stack:紀錄函數呼叫路徑，以及這些函數所用到的區域變數。
 - 目前CPU的狀態	
+
 
 整理Thread的重點如下：
 - 一個process可有多個thread，這些thread共用process的memory space，但每個thread有各自的stack。
@@ -75,10 +79,9 @@ Thread : 又稱為(Lightweight Process)，是process裡單一而連續的控制�
 Thread.setPriority(int)可以設定Thread的優先權,數字越大優先權越高。
 您可以使用 Thread 的 setPriority() 方法來設定執行緒的優先權，設定必須在 1 到 10 之間，否則會丟出 IllegalArgumentException。
 Thread定義了3個相關的static final variable
-
-public static final int MAX_PRIORITY 10
-public static final int MIN_PRIORITY 1
-public static final int NORM_PRIORITY 5 
+- public static final int MAX_PRIORITY 10
+- public static final int MIN_PRIORITY 1
+- public static final int NORM_PRIORITY 5 
 
 當優先權有高有低的不同執行緒都進入生命週期中的Runnable狀態時(例如I/O輸入完畢)，JVM會先讓高優先權的執行緒執行，
 但是在支援時間分割的作業系統下，優先權高的執行緒完成之前，較低優先權的執行緒仍然會分配到執行的時間。
@@ -89,10 +92,7 @@ java分成十種優先權等級，但是各種作業系統的優先權分級未�
 因此不同的優先權重新對映後有可能會沒有差別，如果執行緒的優先權一定要實質差距，可以使用上面提到的MAX、NORM、MIN來設定。
 
 若是優先權相同時則依排程演算法輪流執行，如使用Round-Robin。
-註(Round-Robin演算法)：
-首先，作業系統會定義一個時間單位，稱作time quantum或是time slice，長度通常在10~100毫秒。 
-當程序(process)準備好能執行時(Ready)，會排入一個佇列(queue)的尾端，這佇列稱為ready queue。 
-CPU排程器會不斷地取出排在ready queue前端的程序，並且設定計時器在一個時間單位之後，自動去中斷程序。 
+- 註(Round-Robin演算法)：首先，作業系統會定義一個時間單位，稱作time quantum或是time slice，長度通常在10~100毫秒。當程序(process)準備好能執行時(Ready)，會排入一個佇列(queue)的尾端，這佇列稱為ready queue。 CPU排程器會不斷地取出排在ready queue前端的程序，並且設定計時器在一個時間單位之後，自動去中斷程序。 
 
 ### Thread的使用方法
 想要讓物件能具有多執行緒（Multi-thread）功能，只要繼承 java.lang.Thread 類別或是實作 java.lang.Runnable 介面。
@@ -312,7 +312,7 @@ public class DemoThreadJoin {
 如果您想要停止一個執行緒，您最好自行實作，一個執行緒要進入 Dead 狀態，就是執行完 run() 方法，簡單的說，如果您想要停止一個執行緒的執行，
 就要提供一個方式讓執行緒可以完成 run() 的流程， 而這也是您自行實作執行緒停止的基本概念。
 
-果執行緒因為執行 sleep() 而進入 Blocked 狀態，而您想要停止它，您可以使用 interrupt()，而程式會丟出 InterruptedException 例外，因而使得執行緒離開 run() 方法。
+如果執行緒因為執行 sleep() 而進入 Blocked 狀態，而您想要停止它，您可以使用 interrupt()，而程式會丟出 InterruptedException 例外，因而使得執行緒離開 run() 方法。
 
 如果程式因為輸入輸出的裝置等待而停滯（進入 Blocked 狀態），基本上您必須等待輸入輸出的動作完成才能離開 Blocked 狀態，您無法使用 interrupt() 來使得執行緒離開 run() 方法，
 您要提供替代的方法，基本上的概念也是引發一個例外，而這個例外要如何引發，要看您所使用的輸入輸出而定，例如您使用 readLine() 在等待網路上的一個訊息，此時執行緒進入 Blocked 
@@ -350,45 +350,80 @@ threadGroup1.enumerate(threads);
 
 activeCount() 方法取得群組中作用中的執行緒數量，enumerate() 方法要傳入一個 Thread 陣列，它會將執行緒物件設定至每個陣列欄位中，之後您就可以指定陣列索引來操作這些執行緒。
 
-ThreadGroup 中有個 uncaughtException() 方法，這是當群組中某個執行緒發生非受檢例外（Unchecked exception）時，由執行環境呼叫此方法進行處理，如果有必要，您可以重新定義此方法，
+### 使用Executors
+Thread Pool 的概念如同其名，就是一個 Thread 的 Pool，
+其中有固定或變動量的 Thread，當 request 進來時，若有閒置的 Thread 就執行，
+若沒有的話，可能產生新的 Thread 或把 request 放入 queue 中等待被執行，
+當一條 Thread 執行完工作而 queue 中仍有 request 在等待時，
+此 Thread 應該要被分發新的 request 並處理。
+
+由以上幾行，我們可以看出 Thread Pool 的工作有：
+- 管控 Thread 的產生與回收
+- 分發 Thread 處理 request
+- 處理 request 的 queue
 
 ```java
-package DemoThreadGroup;
+package DemoExecutor ;
 
-import java.io.*;
-
-public class DemoThreadGroup {
-
-    public static void main(String[] args) {
-        ThreadGroup threadGroup1 = 
-        // 這是匿名類別寫法
-            new ThreadGroup("group1") {
-                // 繼承ThreadGroup並重新定義以下方法
-                // 在執行緒成員丟出unchecked exception
-                // 會執行此方法
-                public void uncaughtException(Thread t, Throwable e) { // 第一個參數t可以取得發生例外的執行緒實例，而第二個參數e可以取得例外物件
-                    System.out.println(t.getName() + ": " 
-                             + e.getMessage());
-                }
-            };
-
-        // 這是匿名類別寫法
-        Thread thread1 = 
-            // 這個執行緒是threadGroup1的一員
-            new Thread(threadGroup1,
-              new Runnable() {
-                public void run() {
-                    // 丟出unchecked例外
-                    throw new RuntimeException("測試例外");
-                }
-            }); 
-
-        thread1.start();
-    }
-
-}
-
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+ 
+ public class ThreadPoolDemo {
+ 
+     public static void main(String[] args) {
+         
+         // 建立 2 個 thread 的 thread pool
+         Executor executor = Executors.newFixedThreadPool(2);  
+         
+         // 執行實作了 Runnable 介面的內部類別 Work
+         executor.execute(new Work(1));  
+         executor.execute(new Work(2));  
+         executor.execute(new Work(3));  
+ 
+         // 直接在 function 中宣告匿名內部類別
+         executor.execute(new Runnable() {
+             // anonymous inner class            
+             @Override
+             public void run() {
+                 System.out.println(Thread.currentThread().getName() + 
+                     " Begins Work in anonymous inner class.");  
+             }
+         });
+     }
+     
+     public static class Work implements Runnable {  
+         private int id;  
+       
+         public Work (int id) {  
+             this.id = id;  
+         }  
+       
+         public void run() {  
+             System.out.println(Thread.currentThread().getName() + 
+                 " Begins Work " + id);  
+             try {  
+                 Thread.sleep(1000);  
+             }  
+             catch (InterruptedException ex) {  
+                 ex.printStackTrace();  
+             }  
+             System.out.println(Thread.currentThread().getName() + 
+                 " Ends Work " + id);  
+         }  
+     }  
+ }
 ```
+
+由以上的程式中我們可以發現，
+Thread Pool 的 Thread 生命週期、request queue、分發request 都被 Java 做掉了，
+我們所要做的就只有設定 Thread 的數量和專注在工作的內容。
+
+另外除了固定 Thread 數量的 Thread Pool 可用 Executors.newFixedThreadPool() 外，
+Executors 也提供了其他的 method 來產生不同的 Thread Pool，如：
+- newSingleThreadExecutor()
+- newCachedThreadPool()
+- newScheduledThreadPool()
+- newSingleThreadScheduledExecutor() 等
 
 ## 參考文獻
 
