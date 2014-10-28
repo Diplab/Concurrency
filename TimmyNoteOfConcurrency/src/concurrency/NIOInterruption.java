@@ -39,6 +39,7 @@ class NIOBlocked implements Runnable {
 }
 
 public class NIOInterruption {
+    @SuppressWarnings({ "unused", "resource" })
     public static void main(String[] args) throws Exception {
 	ExecutorService exec = Executors.newCachedThreadPool();
 	ServerSocket server = new ServerSocket(8080);

@@ -26,7 +26,7 @@ public class CachedThreadPool {
 	     * the calling thread, at the discretion of the Executor
 	     * implementation.
 	     */
-	    exec.execute(new LiftOff());
+	    exec.execute(new LiftOff2());
 	/*
 	 * Initiates an orderly shutdown in which previously submitted tasks are
 	 * executed, but no new tasks will be accepted. Invocation has no

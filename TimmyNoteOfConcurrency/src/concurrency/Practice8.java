@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 public class Practice8 {
     public static void main(String[] args) throws InterruptedException {
 	for (int i = 0; i < 5; i++) {
-	    Thread thread = new Thread(new LiftOff());
+	    Thread thread = new Thread(new LiftOff2());
 	    thread.setDaemon(true);
 	    thread.start();
 	}

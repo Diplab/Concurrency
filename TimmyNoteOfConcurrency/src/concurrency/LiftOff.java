@@ -34,13 +34,13 @@ public class LiftOff implements Runnable {
 	System.out.println();
 
 	// The most basic use of the Thread class.
-	Thread thread = new Thread(new LiftOff());
+	Thread thread = new Thread(new LiftOff2());
 	thread.start();
 	System.out.println("Waiting for LiftOff");
 
 	// Adding more threads.
 	for (int i = 0; i < 5; i++) {
-	    new Thread(new LiftOff()).start();
+	    new Thread(new LiftOff2()).start();
 	}
     }
 } // /:~
