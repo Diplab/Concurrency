@@ -5,7 +5,7 @@ Concurrency
 - [前言](#前言)
 
 - [Thread介紹](#Thread介紹)
-	+[Thread生命週期](#Thread生命週期)	
+	+ [Thread生命週期](#Thread生命週期)	
 	+ [Tread優先權](#Thread優先權)
 	+ [Thread的使用方法](#Thread的使用方法)
 		*[繼承Thread類別](#繼承Thread類別)
