@@ -1,6 +1,6 @@
 # Directories #
 /build/
-/bin/
+*/bin/
 target/
  
 # OS Files #
@@ -69,3 +69,7 @@ local.properties
  
 # PDT-specific
 .buildpath
+
+##UML
+*.mgc
+*.mgi
