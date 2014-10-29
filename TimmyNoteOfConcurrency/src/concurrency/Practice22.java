@@ -6,12 +6,13 @@ import java.util.concurrent.TimeUnit;
 
 public class Practice22 {
     public synchronized boolean isFlag() {
-        return flag;
+	notifyAll();
+	return flag;
     }
 
     public synchronized void setFlag(boolean flag) {
-        this.flag = flag;
-        notifyAll();
+	this.flag = flag;
+	notifyAll();
     }
 
     public boolean flag = false;
@@ -30,27 +31,29 @@ public class Practice22 {
 	}
     }
 
-    class MyWaitRunning implements Runnable{
+    class MyWaitRunning implements Runnable {
 	@Override
 	public void run() {
 	    Practice22 practice22 = Practice22.this;
 	    synchronized (practice22) {
-		
-	    System.out.format("MyWaitRunning start running\n");
-	    int counter = 0;
-	    while (!isFlag()) {
-		counter++;
-		try {
-		    practice22.wait();
-		} catch (InterruptedException e) {
-		    System.out.format("MyWaitRunning interrupt\n");
-		    return;
+
+		System.out.format("MyWaitRunning start running\n");
+		int counter = 0;
+		while (!isFlag()) {
+		    counter++;
+		    try {
+			practice22.wait();
+		    } catch (InterruptedException e) {
+			System.out.format("MyWaitRunning interrupt\n");
+			return;
+		    }
 		}
-	    }
-	    System.out.format("MyWaitRunning busy running %d times\n", counter);
+		System.out.format("MyWaitRunning busy running %d times\n",
+			counter);
 	    }
 	}
     }
+
     /**
      * @param args
      * @throws InterruptedException
@@ -59,20 +62,20 @@ public class Practice22 {
 	Practice22 practice22 = new Practice22();
 	MyBusyRunning myBusyRunning = practice22.new MyBusyRunning();
 	ExecutorService service = Executors.newCachedThreadPool();
-	
+
 	service.execute(myBusyRunning);
 	TimeUnit.SECONDS.sleep(1);
 	practice22.setFlag(true);
 	System.out.println("flag = true");
-	
+
 	TimeUnit.SECONDS.sleep(2);
-	
+
 	practice22.setFlag(false);
 	service.execute(practice22.new MyWaitRunning());
 	TimeUnit.SECONDS.sleep(1);
 	practice22.setFlag(true);
 	System.out.println("flag = true");
-	
+	service.shutdown();
     }
 
 }
