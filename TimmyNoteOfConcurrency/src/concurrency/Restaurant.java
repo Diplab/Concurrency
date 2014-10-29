@@ -37,12 +37,40 @@ class WaitPerson implements Runnable {
 		synchronized (restaurant.chef) {
 		    restaurant.meal = null;
 		    restaurant.chef.notifyAll(); // Ready for another
+		    synchronized (restaurant.busBoy) {
+			restaurant.busBoy.notifyAll();
+		    }
 		}
 	    }
 	} catch (InterruptedException e) {
 	    print("WaitPerson interrupted");
 	}
     }
+}
+
+class BusBoy implements Runnable {
+    private Restaurant restaurant;
+
+    public BusBoy(Restaurant restaurant) {
+	super();
+	this.restaurant = restaurant;
+    }
+
+    @Override
+    public void run() {
+	try {
+	    synchronized (this) {
+		wait();
+		while (true) {
+		    System.out.println("Clean");
+		    wait();
+		}
+	    }
+	} catch (InterruptedException e) {
+	    System.out.println("InterruptedException in BusBoy run");
+	}
+    }
+
 }
 
 class Chef implements Runnable {
@@ -77,18 +105,26 @@ class Chef implements Runnable {
     }
 }
 
+class Trash {
+
+}
+
 public class Restaurant {
     Meal meal;
+
     ExecutorService exec = Executors.newCachedThreadPool();
+
     WaitPerson waitPerson = new WaitPerson(this);
+    BusBoy busBoy = new BusBoy(this);
     Chef chef = new Chef(this);
 
     public Restaurant() {
 	exec.execute(chef);
 	exec.execute(waitPerson);
+	exec.execute(busBoy);
     }
 
     public static void main(String[] args) {
 	new Restaurant();
     }
-} 
+}
