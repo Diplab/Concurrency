@@ -312,6 +312,21 @@ public class DemoThreadJoin {
 如果您想要停止一個執行緒，您最好自行實作，一個執行緒要進入 Dead 狀態，就是執行完 run() 方法，簡單的說，如果您想要停止一個執行緒的執行，
 就要提供一個方式讓執行緒可以完成 run() 的流程， 而這也是您自行實作執行緒停止的基本概念。
 
+```java
+public class SomeThread implements Runnable { 
+    private boolean isContinue = true; 
+    public void terminate() { 
+        isContinue = false; 
+    } 
+    public void run() { 
+        while(isContinue) { 
+            // ... some statements 
+        } 
+    } 
+}
+```
+
+
 如果執行緒因為執行 sleep() 而進入 Blocked 狀態，而您想要停止它，您可以使用 interrupt()，而程式會丟出 InterruptedException 例外，因而使得執行緒離開 run() 方法。
 
 ```java
