@@ -314,9 +314,26 @@ public class DemoThreadJoin {
 
 如果執行緒因為執行 sleep() 而進入 Blocked 狀態，而您想要停止它，您可以使用 interrupt()，而程式會丟出 InterruptedException 例外，因而使得執行緒離開 run() 方法。
 
-如果程式因為輸入輸出的裝置等待而停滯（進入 Blocked 狀態），基本上您必須等待輸入輸出的動作完成才能離開 Blocked 狀態，您無法使用 interrupt() 來使得執行緒離開 run() 方法，
-您要提供替代的方法，基本上的概念也是引發一個例外，而這個例外要如何引發，要看您所使用的輸入輸出而定，例如您使用 readLine() 在等待網路上的一個訊息，此時執行緒進入 Blocked 
-直到讀到一個訊息，您要讓它離開 run() 的方法就是使用 close() 關閉它的串流，這時會引發一個 IOException 例外而使得執行緒離開 run() 方法，
+```java
+public class SomeThread implements Runnable {
+    public void run() { 
+        System.out.println("sleep....至 blocked 狀態"); 
+        try { 
+            Thread.sleep(9999); 
+        } 
+        catch(InterruptedException e) { 
+            System.out.println("I am interrupted...."); 
+        } 
+    } 
+
+    public static void main(String[] args) { 
+        Thread thread = 
+                 new Thread(new SomeThread()); 
+        thread.start(); 
+        thread.interrupt(); 
+    } 
+}
+```
 
 ### ThreadGroup
 在 Java 中每個執行緒都屬於某個「執行緒群組」（ThreadGroup）管理的一員，例如若您是在 main() 主工作流程中產生一個執行緒，則產生的執行緒屬於 main 這個執行緒群組管理的一員，
@@ -362,6 +379,10 @@ Thread Pool 的概念如同其名，就是一個 Thread 的 Pool，
 - 分發 Thread 處理 request
 - 處理 request 的 queue
 
+使用Executors能為你管理Thread物件，進而簡化並行程式設計撰寫。Executors提供的是用戶端與執行任務之間的中介層，讓中介物件
+執行任務，而不是讓用戶端直接執行。Executors可以讓你管理非同步任務的執行，而無需自行管理Thread的生命週期。
+
+範例5:
 ```java
 package DemoExecutor ;
 
@@ -420,10 +441,13 @@ Thread Pool 的 Thread 生命週期、request queue、分發request 都被 Java 
 
 另外除了固定 Thread 數量的 Thread Pool 可用 Executors.newFixedThreadPool() 外，
 Executors 也提供了其他的 method 來產生不同的 Thread Pool，如：
-- newSingleThreadExecutor()
-- newCachedThreadPool()
-- newScheduledThreadPool()
-- newSingleThreadScheduledExecutor() 等
+- SingleThreadExecutor
+- CachedThreadPool
+- ScheduledThreadPool
+- SingleThreadScheduledExecutor 
+
+
+
 
 ## 參考文獻
 
