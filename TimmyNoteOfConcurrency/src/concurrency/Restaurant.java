@@ -49,11 +49,9 @@ class WaitPerson implements Runnable {
 }
 
 class BusBoy implements Runnable {
-    private Restaurant restaurant;
 
     public BusBoy(Restaurant restaurant) {
 	super();
-	this.restaurant = restaurant;
     }
 
     @Override
