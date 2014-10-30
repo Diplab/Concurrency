@@ -19,6 +19,7 @@ Concurrency
 - [同步化議題](#同步化議題)
 	+ [同步化](#同步化)
 	+ [wait()、notify()](#wait()、notify())
+		* [notify()V.S.notifyAll()](#notify()V.S.notifyAll())
 	+ [生產者與消費者](#生產者與消費者)
 	+ [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全（Thread-safe）)
 	+ [ThreadLocal 類別](#ThreadLocal 類別)
@@ -475,8 +476,8 @@ Executors 也提供了其他的 method 來產生不同的 Thread Pool，如：
 
 ### 同步化
 
-如果您的程式只是一個單執行緒，單一流程的程式，那麼您只要注意到程式邏輯的正確，您的程式通常就可以正確的執行您想要的功能，
-但當您的程式是多執行緒程式，多流程同時執行時，那麼您就要注意到更多的細節，例如在多執行緒共用同一物件的資料時。
+如果程式只是一個單執行緒，單一流程的程式，那麼只要注意到程式邏輯的正確，程式通常就可以正確的執行您想要的功能，
+但當程式是多執行緒程式，多流程同時執行時，那麼就要注意到更多的細節，例如在多執行緒共用同一物件的資料時。
 
 如果一個物件所持有的資料可以被多執行緒同時共享存取時，您必須考慮到「資料同步」的問題，所謂資料同步指的是兩份資料的整體性、一致性，
 例如物件 A 有 name 與 id 兩個屬性，而有一份 A1 資料有 name 與 id 的資料要用來更新物件A的屬性，如果 A1 的 name 與 id 設定給 A 物件完成，
@@ -567,7 +568,7 @@ public synchronized void setNameAndID(String name, String id) {
 }
 ```
 
-這邊要引進物件的鎖定（lock）觀念，您要知道每個物件在內部都會有一個鎖定，物件的這個鎖定在平時是沒有作用的。
+這邊要引進物件的鎖定（lock）觀念，要知道每個物件在內部都會有一個鎖定，物件的這個鎖定在平時是沒有作用的。
 被標示為 "synchronized" 的方法會成為同步化區域，當執行緒執行某個物件的同步化區域時，物件的鎖定就有作用了，
 想要執行同步化區域的執行緒，都必須先取得物件的鎖定，執行完同步化區域之後再將鎖定歸還給物件。
 
@@ -597,7 +598,7 @@ public void setNameAndID(String name, String id) {
 ```
 
 這個程式片段的意思就是，在執行緒執行至 "synchronized" 設定的同步化區塊時取得物件鎖定，
-這麼一來就沒有其它執行緒可以來執行這個同步化區塊，這個方式可以應用於您不想鎖定整個方法區塊，
+這麼一來就沒有其它執行緒可以來執行這個同步化區塊，這個方式可以應用於不想鎖定整個方法區塊，
 而只是想在更新共享資料時再確保物件與資料的同步化，由於同步化區域只是方法中的某個區塊，
 在執行完區塊後執行緒即釋放對物件的鎖定，以便讓其它執行緒有機會競爭物件的鎖定，
 相較於將整個方法區塊都設定為同步化區域會比較有效率。
@@ -618,8 +619,12 @@ synchronized(arraylist) {
 
 ### wait()、notify()
 
-wait()、notify() 與 notifyAll() 是 由Object 類別所提供的方法，您在定義自己的類別時會繼承下來（記得 Java 中所有的物件最頂層都繼承自 Object），
-wait()、notify() 與 notifyAll() 都被宣告為 "final"，所以您無法重新定義它們，透過 wait() 方法您可以要求執行緒進入物件的等待池（Wait Pool），
+死結(Deadlock):正在懸置狀態的thread再也無法改變他的狀態，因為他所要的資源被另一個也再懸置的thread占用，最後造成餓死(starvation)。
+死結在程式執行時期不會出現例外，因為死結在城市中屬於非程式執行時期的錯誤，而這種錯誤系統會以正常情況看待，所以應小心避免。
+因此需要利用wait()、notify()協調。
+
+wait()、notify() 與 notifyAll() 是 由Object 類別所提供的方法，您在定義自己的類別時會繼承下來，
+wait()、notify() 與 notifyAll() 都被宣告為 "final"，所以無法重新定義它們，透過 wait() 方法可以要求執行緒進入物件的等待池（Wait Pool），
 或是通知執行緒回到鎖定池的 Blocked 狀態。
 
 您必須在同步化的方法或區塊中呼叫 wait() 方法（也就是執行緒取得鎖定時），當物件的 wait() 方法被調用，目前的執行緒會被放入物件的等待池中，
@@ -634,8 +639,17 @@ wait() 可以指定等待的時間，如果指定時間的話，則時間到之�
 這些執行緒會與其它執行緒共同競爭物件的鎖定。
 
 簡單的說，當執行緒呼叫到物件的 wait() 方法時，表示它要先讓出物件的鎖定並等待通知，或是等待一段指定的時間，
-直到被通知或時間到時再與其它執行緒競爭物件的鎖定，如果取得鎖定了，就從等待點開始執行，這就好比您要叫某人作事，
-作到一半時某人叫您等候通知（或等候 1 分鐘之類的），當您被通知（或時間到時）某人會繼續為您服務。
+直到被通知或時間到時再與其它執行緒競爭物件的鎖定，如果取得鎖定了，就從等待點開始執行。
+
+#### notify()V.S.notifyAll()
+notify():
+- 目的：僅喚醒一個正在等待狀態的thread。
+- 缺點：當有多個thread等待被喚醒時，由JVM決定哪一個thread出線，開發人員無法控制，出線的依歸不一定是由priority決定，而是JVM的運算法則為準。
+
+notifyAll():
+- 目的：喚醒所有正在等待狀態的thread。
+- 缺點：依序喚醒的順序也由JVM決定。
+
 
 ### 生產者與消費者
 
@@ -801,26 +815,12 @@ synchronized(arraylist) {
 List list = Collections.synchronizedList(new ArrayList());
 ```
 
-以這種方式返回的 List 物件，在存取資料時，會進行同步化的工作，不過在您使用 Iterator 遍訪物件時，您仍必須實作同步化，因為這樣的 List 使用 iterator() 方法返回的 Iterator 物件，並沒有保證執行緒安全（Thread-safe），一個實作遍訪的例子如下：
-```java
-List list = Collections.synchronizedList(new ArrayList());
-...
-synchronized(list) {
-    Iterator i = list.iterator(); 
-    while (i.hasNext()) {
-        foo(i.next());
-    }
-}
-```
+以這種方式返回的 List 物件，在存取資料時，會進行同步化的工作。
+
 
 在 J2SE 5.0 之後，新增了 java.util.concurrent 這個 package，當中包括了一些確保執行緒安全的 Collection 類，
 例如 ConcurrentHashMap、CopyOnWriteArrayList、CopyOnWriteArraySet 等，這些新增的 Collection 類基本行為與先前介紹的 Map、List、Set 
 等物件是相同的，所不同的是增加了同步化的功能，而且依物件存取時的需求不同而有不同的同步化實作，以同時確保效率與安全性。
-
-例如 ConcurrentHashMap 針對 Hash Table中不同的區段（Segment）進行同步化，而不是對整個物件進行同步化，
-預設上 ConcurrentHashMap 有 16 個區段，當有執行緒在存取第一個區段時，第一個區域進入同步化，
-然而另一個執行緒仍可以存取第一個區段以外的其它區段，而不用等待第一個執行緒存取完成，所以與同步化整個物件來說，
-新增的 ConcurrentHashMap、CopyOnWriteArrayList、CopyOnWriteArraySet 等類別，在效率與安全性上取得了較好的平衡。
 
 ### ThreadLocal 類別
 無論如何，要編寫一個多執行緒安全（Thread-safe）的程式總是困難的，為了讓執行緒共用資源，您必須小心的對共用資源進行同步，
