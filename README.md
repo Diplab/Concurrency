@@ -16,6 +16,16 @@ Concurrency
 	+ [ThreadGroup](#ThreadGroup)
 	+ [使用Executors](#使用Executors)
 	
+- [同步化議題](#同步化議題)
+	+ [同步化](#同步化)
+	+ [wait()、notify()](#wait()、notify())
+	+ [生產者與消費者](#生產者與消費者)
+	+ [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全（Thread-safe）)
+	+ [ThreadLocal 類別](#ThreadLocal 類別)
+	+ [concurrent 套件新增類別](#concurrent 套件新增類別)
+		* [BlockingQueue](#BlockingQueue)
+		* [Callable 與 Future](#Callable 與 Future)
+	
 - [參考文獻](#參考文獻)
 
 ## 前言
@@ -461,8 +471,611 @@ Executors 也提供了其他的 method 來產生不同的 Thread Pool，如：
 - ScheduledThreadPool
 - SingleThreadScheduledExecutor 
 
+## 同步化議題
 
+### 同步化
 
+如果您的程式只是一個單執行緒，單一流程的程式，那麼您只要注意到程式邏輯的正確，您的程式通常就可以正確的執行您想要的功能，
+但當您的程式是多執行緒程式，多流程同時執行時，那麼您就要注意到更多的細節，例如在多執行緒共用同一物件的資料時。
+
+如果一個物件所持有的資料可以被多執行緒同時共享存取時，您必須考慮到「資料同步」的問題，所謂資料同步指的是兩份資料的整體性、一致性，
+例如物件 A 有 name 與 id 兩個屬性，而有一份 A1 資料有 name 與 id 的資料要用來更新物件A的屬性，如果 A1 的 name 與 id 設定給 A 物件完成，
+則稱 A1 與 A 同步：
+![21-2.png](img/21-2.png)
+
+如果 A1 資料在更新了物件的 name 屬性時，突然插入了一份 A2 資料更新了 A 物件的 id 屬性，則顯然的 A1 資料與 A 就不同步，A2 資料與 A 也不同步。
+![21-3.png](img/21-3.png)
+
+下面是個簡單的範例，看看在多執行緒共用資料時會發生什麼問題。
+範例6：
+```java
+package DemoSynchronized;
+
+class PersonalInfo {
+    private String name; 
+    private String id; 
+    private int count; 
+
+    public PersonalInfo() { 
+       name = "nobody"; 
+       id = "N/A"; 
+    } 
+
+    public void setNameAndID(String name, String id) { 
+       this.name = name; 
+       this.id = id; 
+       if(!checkNameAndIDEqual()) {
+           System.out.println(count + 
+                   ") illegal name or ID.....");
+       } 
+       count++; 
+    } 
+
+    private boolean checkNameAndIDEqual() { 
+       return (name.charAt(0) == id.charAt(0)) ? 
+                             true : false; 
+    } 
+}
+
+public class PersonalInfoTest {
+    public static void main(String[] args) {
+        final PersonalInfo person = new PersonalInfo(); 
+
+        // 假設會有兩個執行緒可能更新person物件
+        Thread thread1 = new Thread(new Runnable() { 
+           public void run() { 
+              while(true) 
+                  person.setNameAndID("Justin Lin", "J.L"); 
+           } 
+        }); 
+
+        Thread thread2 = new Thread(new Runnable() { 
+            public void run() { 
+               while(true) 
+                   person.setNameAndID("Shang Hwang", "S.H");    
+            } 
+        }); 
+
+        System.out.println("開始測試....."); 
+
+        thread1.start(); 
+        thread2.start();
+    }
+} 
+
+```
+
+雖然傳遞給 setNameAndID() 的引數並沒有問題，在某個時間點時，thread1 設定了 "Justin Lin", "J.L" 給 name 與 id，在進行 if 測試的前一刻，
+thread2 可能此時剛好呼叫 setNameAndID("Shang Hwang", "S.H")，在 name 被設定為 "Shang Hwang" 時，checkNameAndIDEqual() 
+開始執行，「此時 name 等於 "Shang Hwang"，而 id 還是 "J.L"」，所以 checkNameAndIDEqual() 就會傳回 false，結果就顯示了錯誤訊息。
+
+當一個執行緒正在設定物件資料時，另一個執行緒不可以同時進行設定，這時候我們可以使用"synchronized" 關鍵字來進行這個動作。
+
+其中一個方法是把"synchronized" 關鍵字用於方法上，讓方法的範圍（Scope）內都成為同步化區域，例如：
+```java
+public synchronized void setNameAndID(String name, String id) { 
+    this.name = name; 
+    this.id = id; 
+    if(!checkNameAndIDEqual()) {
+       System.out.println(count + 
+               ") illegal name or ID.....");
+    } 
+    count++; 
+}
+```
+
+這邊要引進物件的鎖定（lock）觀念，您要知道每個物件在內部都會有一個鎖定，物件的這個鎖定在平時是沒有作用的。
+被標示為 "synchronized" 的方法會成為同步化區域，當執行緒執行某個物件的同步化區域時，物件的鎖定就有作用了，
+想要執行同步化區域的執行緒，都必須先取得物件的鎖定，執行完同步化區域之後再將鎖定歸還給物件。
+
+因為物件的鎖定只有一個，當有個執行緒已取走鎖定而正在執行同步化區域中的程式碼時，
+若有其它執行緒也想執行 "synchronized" 的區域，因為其它執行緒無法取得鎖定，所以只好在物件的鎖定池（Lock Pool）等待，
+直到鎖定被前一個執行緒歸還為止，此時在鎖定池中的執行緒競爭被歸還的物件鎖定，只有取得鎖定的執行緒才能進入 Runnable 狀態，
+等待排班器排班並執行同步化區域。 說明到這邊，可以畫出如下圖的執行緒狀態圖：
+
+![21-4.png](img/21-4.png)
+
+同步化的區域在有一個執行緒佔據時就像個禁區，不允許其它執行緒進入，由於同時間只能有一個執行緒在同步化區域，所以更新共享資料時，
+就有如單執行緒程式在更新資料一樣，藉此保證物件中的資料會與給定的資料同步。
+
+另外，"synchronized" 的設定不只可用於方法上，也可以用於限定某個程式區塊為同步化區域，例如：
+```java
+public void setNameAndID(String name, String id) { 
+    synchronized(this) {
+        this.name = name; 
+        this.id = id; 
+        if(!checkNameAndIDEqual()) {
+           System.out.println(count + 
+               ") illegal name or ID.....");
+        } 
+        count++; 
+    }
+}
+```
+
+這個程式片段的意思就是，在執行緒執行至 "synchronized" 設定的同步化區塊時取得物件鎖定，
+這麼一來就沒有其它執行緒可以來執行這個同步化區塊，這個方式可以應用於您不想鎖定整個方法區塊，
+而只是想在更新共享資料時再確保物件與資料的同步化，由於同步化區域只是方法中的某個區塊，
+在執行完區塊後執行緒即釋放對物件的鎖定，以便讓其它執行緒有機會競爭物件的鎖定，
+相較於將整個方法區塊都設定為同步化區域會比較有效率。
+
+您也可以標示某個物件要求同步化，例如在多執行緒存取同一個 ArrayList 物件時，由於 ArrayList 並沒有實作資料存取時的同步化，
+所以當它使用於多執行緒環境時，必須注意多個執行緒存取同一個 ArrayList 時，有可能發生兩個以上的執行緒將資料存入 ArrayList 的同一個位置，
+造成資料的相互覆蓋，為了確保資料存入時的正確性，您可以在存取 ArrayList 物件時要求同步化，例如：
+
+```java
+// arraylist參考至一個ArrayList的一個實例 
+synchronized(arraylist) {
+    arraylist.add(new SomeClass()); 
+}
+```
+
+同步化確保資料的同步，但所犧性的就是在於一個執行緒取得物件鎖定而佔據同步化區塊，而其它執行緒等待它釋放鎖定時的延遲，
+在執行緒少時可能看不出來，但在執行緒多的環境中必然造成一定的效能問題（例如大型網站的多人連線時）。
+
+### wait()、notify()
+
+wait()、notify() 與 notifyAll() 是 由Object 類別所提供的方法，您在定義自己的類別時會繼承下來（記得 Java 中所有的物件最頂層都繼承自 Object），
+wait()、notify() 與 notifyAll() 都被宣告為 "final"，所以您無法重新定義它們，透過 wait() 方法您可以要求執行緒進入物件的等待池（Wait Pool），
+或是通知執行緒回到鎖定池的 Blocked 狀態。
+
+您必須在同步化的方法或區塊中呼叫 wait() 方法（也就是執行緒取得鎖定時），當物件的 wait() 方法被調用，目前的執行緒會被放入物件的等待池中，
+執行緒歸還物件的鎖定，其它的執行緒可競爭物件的鎖定；被放在等待池中的執行緒也是處於 Blocked 狀態，所以不參與執行緒的排班。
+
+wait() 可以指定等待的時間，如果指定時間的話，則時間到之後執行緒會再度回到鎖定池的 Blocked 狀態，等待競爭物件鎖定的機會，
+如果指定時間 0 或不指定，則執行緒會持續等待，直到被中斷（interrupt），或是被告知（notify）回到鎖定池的 Blocked 狀態。
+![21-5.png](img/21-5.png)
+
+當物件的 notify() 被調用，它會從目前物件的等待池中通知「一個」執行緒加入回到鎖定池的 Blocked 狀態，被通知的執行緒是隨機的，
+被通知的執行緒會與其它執行緒共同競爭物件的鎖定；如果您呼叫 notifyAll()，則「所有」在等待池中的執行緒都會被通知回到鎖定池的 Blocked 狀態，
+這些執行緒會與其它執行緒共同競爭物件的鎖定。
+
+簡單的說，當執行緒呼叫到物件的 wait() 方法時，表示它要先讓出物件的鎖定並等待通知，或是等待一段指定的時間，
+直到被通知或時間到時再與其它執行緒競爭物件的鎖定，如果取得鎖定了，就從等待點開始執行，這就好比您要叫某人作事，
+作到一半時某人叫您等候通知（或等候 1 分鐘之類的），當您被通知（或時間到時）某人會繼續為您服務。
+
+### 生產者與消費者
+
+說明 wait()、notify()或notifyAll() 應用最常見的一個例子，就是生產者（Producer）與消費者（Consumer）的例子：
+生產者會將產品交給店員，而消費者從店員處取走產品，店員一次只能持有固定數量產品，如果生產者生產了過多的產品，
+店員叫生產者等一下（wait），如果店中有空位放產品了再通知（notify）生產者繼續生產，如果店中沒有產品了，
+店員會告訴消費者等一下（wait），如果店中有產品了再通知（notify）消費者來取走產品。
+
+以下舉一個最簡單的：生產者每次生產一個 int 整數交給店員，而消費者從店員處取走整數，店員一次只能持有一個整數。
+
+範例7:
+Clerk.java
+```java
+package ProducerAndConsumer;
+
+public class Clerk {
+    // -1 表示目前沒有產品
+    private int product = -1; 
+
+    // 這個方法由生產者呼叫
+    public synchronized void setProduct(int product) { 
+        if(this.product != -1) { 
+            try { 
+                // 目前店員沒有空間收產品，請稍候！
+                wait(); 
+            } 
+            catch(InterruptedException e) { 
+                e.printStackTrace(); 
+            } 
+        } 
+
+        this.product = product; 
+        System.out.printf("生產者設定 (%d)%n", this.product); 
+
+        // 通知等待區中的一個消費者可以繼續工作了
+        notify(); 
+    } 
+
+    // 這個方法由消費者呼叫
+    public synchronized int getProduct() { 
+        if(this.product == -1) { 
+            try { 
+                // 缺貨了，請稍候！
+                wait(); 
+            } 
+            catch(InterruptedException e) { 
+                e.printStackTrace(); 
+            } 
+        } 
+
+        int p = this.product; 
+        System.out.printf("消費者取走 (%d)%n", this.product); 
+        this.product = -1; // 取走產品，-1表示目前店員手上無產品
+
+        // 通知等待區中的一個生產者可以繼續工作了
+        notify(); 
+
+        return p; 
+    } 
+} 
+```
+
+Producer.java
+```java
+package ProducerAndConsumer;
+
+public class Producer implements Runnable {
+    private Clerk clerk; 
+
+    public Producer(Clerk clerk) { 
+        this.clerk = clerk; 
+    } 
+
+    public void run() { 
+        System.out.println("生產者開始生產整數......"); 
+
+        // 生產1到10的整數
+        for(int product = 1; product <= 10; product++) { 
+            try { 
+                // 暫停隨機時間
+                Thread.sleep((int) (Math.random() * 3000)); 
+            } 
+            catch(InterruptedException e) { 
+                e.printStackTrace(); 
+            } 
+            // 將產品交給店員
+            clerk.setProduct(product); 
+        }       
+    } 
+}
+
+```
+
+Consumer.java
+```java
+package ProducerAndConsumer;
+
+public class Consumer implements Runnable {
+    private Clerk clerk; 
+
+    public Consumer(Clerk clerk) { 
+        this.clerk = clerk; 
+    } 
+
+    public void run() { 
+        System.out.println(
+                "消費者開始消耗整數......"); 
+
+        // 消耗10個整數
+        for(int i = 1; i <= 10; i++) { 
+            try { 
+                // 等待隨機時間
+                Thread.sleep((int) (Math.random() * 3000)); 
+            } 
+            catch(InterruptedException e) { 
+                e.printStackTrace(); 
+            } 
+
+            // 從店員處取走整數
+            clerk.getProduct(); 
+        } 
+    } 
+ } 
+
+```
+
+ProductTest.java
+```java
+package ProducerAndConsumer;
+
+public class ProductTest {
+    public static void main(String[] args) {
+        Clerk clerk = new Clerk(); 
+
+        // 生產者執行緒
+        Thread producerThread = 
+            new Thread(
+                new Producer(clerk)); 
+        // 消費者執行緒
+        Thread consumerThread = 
+            new Thread(
+                new Consumer(clerk)); 
+
+        producerThread.start(); 
+        consumerThread.start(); 
+    }
+}
+```
+
+### 容器類的執行緒安全（Thread-safe）
+容器類預設沒有考慮執行緒安全問題，您必須自行實作同步以確保共用資料在多執行緒存取下不會出錯，例如若您使用 List 物件時，您可以這樣實作：
+
+```java
+// arraylist參考至一個ArrayList的一個實例 
+synchronized(arraylist) {
+    arraylist.add(new SomeClass()); 
+}
+```
+
+事實上，您也可以使用 java.util.Collections 的 synchronizedXXX() 等方法來傳回一個同步化的容器物件，例如傳回一個同步化的 List：
+```java
+List list = Collections.synchronizedList(new ArrayList());
+```
+
+以這種方式返回的 List 物件，在存取資料時，會進行同步化的工作，不過在您使用 Iterator 遍訪物件時，您仍必須實作同步化，因為這樣的 List 使用 iterator() 方法返回的 Iterator 物件，並沒有保證執行緒安全（Thread-safe），一個實作遍訪的例子如下：
+```java
+List list = Collections.synchronizedList(new ArrayList());
+...
+synchronized(list) {
+    Iterator i = list.iterator(); 
+    while (i.hasNext()) {
+        foo(i.next());
+    }
+}
+```
+
+在 J2SE 5.0 之後，新增了 java.util.concurrent 這個 package，當中包括了一些確保執行緒安全的 Collection 類，
+例如 ConcurrentHashMap、CopyOnWriteArrayList、CopyOnWriteArraySet 等，這些新增的 Collection 類基本行為與先前介紹的 Map、List、Set 
+等物件是相同的，所不同的是增加了同步化的功能，而且依物件存取時的需求不同而有不同的同步化實作，以同時確保效率與安全性。
+
+例如 ConcurrentHashMap 針對 Hash Table中不同的區段（Segment）進行同步化，而不是對整個物件進行同步化，
+預設上 ConcurrentHashMap 有 16 個區段，當有執行緒在存取第一個區段時，第一個區域進入同步化，
+然而另一個執行緒仍可以存取第一個區段以外的其它區段，而不用等待第一個執行緒存取完成，所以與同步化整個物件來說，
+新增的 ConcurrentHashMap、CopyOnWriteArrayList、CopyOnWriteArraySet 等類別，在效率與安全性上取得了較好的平衡。
+
+### ThreadLocal 類別
+無論如何，要編寫一個多執行緒安全（Thread-safe）的程式總是困難的，為了讓執行緒共用資源，您必須小心的對共用資源進行同步，
+同步帶來一定的效能延遲，而另一方面，在處理同步的時候，又要注意物件的鎖定與釋放，避免產生死結，種種因素都使得編寫多執行緒程式變得困難。
+
+嘗試從另一個角度來思考多執行緒共用資源的問題，既然共用資源這麼困難，那麼就乾脆不要共用，何不為每個執行緒創造一個資源的複本，
+將每一個執行緒存取資料的行為加以隔離，實現的方法就是給予每一個執行緒一個特定空間來保管該執行緒所獨享的資源，
+在 Java 中您可以使用 java.lang.ThreadLocal 來實現這個功能，這個類別是從 JDK 1.2 之後開始提供，不過這邊要先來看看，
+如何自行實現一個簡單的 ThreadLocal 類別。
+
+範例8:
+```java
+import java.util.*;
+
+public class ThreadLocal<T> {
+    // 取得一個同步化的Map物件
+    private Map<Thread, T> storage = 
+             Collections.synchronizedMap(new HashMap<Thread, T>());
+
+    public T get() {
+        // 取得目前執行get()方法的執行緒
+        Thread current = Thread.currentThread();
+        // 根據執行緒取得執行緒自有的資源
+        T t = storage.get(current);
+
+        // 如果還沒有執行緒專用的資源空間
+        // 則建立一個新的空間
+        if(t == null && 
+           !storage.containsKey(current)) {
+            t = initialValue();
+            storage.put(current, t);
+        }
+
+        return t;
+    }
+
+    public void set(T t) {
+        storage.put(Thread.currentThread(), t);
+    }
+
+    public T initialValue() {
+        return null;
+    }
+}
+```
+
+範例中您使用執行緒作為「鍵」（Key），並將所獲得的資源物件放在Map物件中，如果第一次使用get()，您也配置一個空間給執行緒，
+而 initialValue() 可以用來設定什麼樣的初值要先儲存在這個空間中，在範例中先簡單的設定為 null。 
+現在假設有一個原先在單執行緒環境下的資源 SomeResource，現在考慮要在多執行緒環境下使用，
+您不想考慮複雜的執行緒共用互斥問題，此時可以使用 ThreadLocal 類別來使用 SomeResource，例如：
+範例9:
+```java
+public class Resource {
+    private static final 
+       onlyfun.caterpillar.ThreadLocal<SomeResource> threadLocal = 
+            new onlyfun.caterpillar.ThreadLocal<SomeResource>();
+    public static SomeResource getResource() {
+        // 根據目前執行緒取得專屬資源
+        SomeResource resource = threadLocal.get();
+        // 如果沒有取得目前專屬資源
+        if(resource == null) {
+            // 建立一個新的資源並存入ThreadLocal中
+            resource = new SomeResource();
+            threadLocal.set(resource);
+        }
+        return resource;
+    }
+}
+```
+
+以上所實作的 ThreadLocal 類別只是一個簡單的示範，在 Java 中您可以直接使用 java.lang.ThreadLocal，
+在這邊簡單的示範一個記錄（Log）程式，它可以記錄每個執行緒的活動。
+```java
+package DemoThreadLogger;
+
+import java.io.*;
+import java.util.logging.*;                            
+
+class SimpleThreadLogger {
+    private static final 
+        java.lang.ThreadLocal<Logger> threadLocal = 
+                  new java.lang.ThreadLocal<Logger>();
+    // 輸出訊息
+    public static void log(String msg) {
+        getThreadLogger().log(Level.INFO, msg);
+    }
+    // 根據執行緒取得專屬Logger
+    private static Logger getThreadLogger() {
+        Logger logger = threadLocal.get();
+
+        if(logger == null) {
+            try {
+                logger = Logger.getLogger(
+                           Thread.currentThread().getName());
+                // Logger 預設是在主控台輸出
+                // 我們加入一個檔案輸出的Handler
+                // 它會輸出XML的記錄文件
+                logger.addHandler(
+                    new FileHandler(
+                           Thread.currentThread().getName() 
+                           + ".log"));
+            }
+            catch(IOException e) {}
+
+            threadLocal.set(logger);
+        }
+
+        return logger;
+    }
+}
+
+public class LoggerTest {
+    public static void main(String[] args) {
+        new TestThread("thread1").start();
+        new TestThread("thread2").start();
+        new TestThread("thread3").start();
+    }
+}
+
+class TestThread extends Thread {
+    public TestThread(String name) {
+        super(name);
+    }
+
+    public void run() {
+        for(int i = 0; i < 10; i++) {
+            SimpleThreadLogger.log(getName() + 
+                                     ": message " + i);
+            try {
+                Thread.sleep(1000);
+            }
+            catch(Exception e) {
+                SimpleThreadLogger.log(e.toString());
+            }
+        }
+    }
+}
+```
+
+執行之後，您可以在主控台上看到輸出，並可以在同一目錄下找到三個 .log 檔，分別記錄了三個執行緒的活動，
+透過 ThreadLocal，您不用撰寫複雜的執行緒共用互斥邏輯，其意義在於：「有時不共用是好的」。如果共用會產生危險，
+那就不要共用，當然，這種方式所犧牲掉的就是空間，您必須為每一個執行緒保留它們獨立的空間，
+這是一種以空間換取時間與安全性的方法。
+
+### concurrent 套件新增類別
+
+#### BlockingQueue
+佇列（Queue）是個先前先出（First In First Out, FIFO）的資料結構。在 J2SE 5.0 中新增了 java.util.concurrent.BlockingQueue，
+在多執行緒的情況下，如果 BlockingQueue 的內容為空，而有個執行緒試圖從 Queue 中取出元素，則該執行緒會被 Block，
+直到 Queue 有元素時才解除 Block，反過來說，如果 BlockingQueue 滿了，而有個執行緒試圖再把資料填入 Queue 中，
+則該執行緒會被 Block，直到 Queue 中有元素被取走後解除 Block。
+
+#### Callable 與 Future
+java.util.concurrent.Callable 與 java.util.concurrent.Future 類別可以協助您完成 Future 模式，Future 模式在請求發生時，
+會先產生一個 Future 物件給發出請求的客戶，它的作用就像是代理（Proxy）物件，而同時間，所代理的真正目標物件之生成，
+是由一個新的執行緒持續進行，真正的目標物件生成之後，將之設定至 Future 之中，而當客戶端真正需要目標物件時，
+目標物件也已經準備好，可以讓客戶提取使用。
+
+Callable 是個介面，與 Runnable 類似，有個必須實作的方法，可以啟動為另一個執行緒來執行，不過 Callable 工作完成後，可以傳回結果物件，Callable 介面的定義如下：
+```java
+public interface Callable<V> {
+    V call() throws Exception;
+}
+```
+
+例如您可以使用 Callable 來完成某個費時的工作，工作結束後傳回結果物件，例如求質數：
+範例10:
+PrimeCallable.java
+```java
+package DemoCallableAndFuture;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+
+public class PrimeCallable implements Callable<int[]> {
+    private int max;
+
+    public PrimeCallable(int max) {
+        this.max = max;
+    }
+
+    public int[] call() throws Exception {
+        int[] prime = new int[max+1]; 
+
+        List<Integer> list = new ArrayList<Integer>(); 
+
+        for(int i = 2; i <= max; i++) 
+            prime[i] = 1; 
+
+        for(int i = 2; i*i <= max; i++) { // 這邊可以改進 
+            if(prime[i] == 1) { 
+                for(int j = 2*i; j <= max; j++) { 
+                    if(j % i == 0) 
+                        prime[j] = 0; 
+                } 
+            } 
+        } 
+
+        for(int i = 2; i < max; i++) { 
+            if(prime[i] == 1) { 
+                list.add(i); 
+            } 
+        }
+
+        int[] p = new int[list.size()];
+        for(int i = 0; i < p.length; i++) {
+            p[i] = list.get(i).intValue();
+        }
+
+        return p;
+    }   
+}
+
+```
+
+FutureDemo.java
+```java
+package DemoCallableAndFuture;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+
+public class FutureDemo {
+    public static void main(String[] args) {
+        Callable<int[]> primeCallable = new PrimeCallable(1000);
+        FutureTask<int[]> primeTask = 
+                new FutureTask<int[]>(primeCallable);
+
+        Thread t = new Thread(primeTask);
+        t.start();
+
+        try {
+            // 假設現在做其它事情
+            Thread.sleep(1000);
+
+            // 回來看看質數找好了嗎
+            if(primeTask.isDone()) {
+                int[] primes = primeTask.get();
+                for(int prime : primes) {
+                    System.out.print(prime + " ");
+                }
+                System.out.println();
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }   
+    }
+}
+```
+java.util.concurrent.FutureTask 是個代理，真正執行找質數的是 Callable 物件，您使用另一個執行緒啟動 FutureTask，之後就可以先去做其它的事了，
+等到某個時間點，回頭用 isDone() 看看任務完成了沒，如果完成了，就可以取得成果。
+
+考慮這樣一個情況，使用者可能快速翻頁瀏覽文件中，而圖片檔案很大，如此在瀏覽到有圖片的頁數時，就會導致圖片的載入，因而造成使用者瀏覽文件時會有停頓的現象，
+所以我們希望在文件開啟之後，仍有一個背景作業持續載入圖片，如此使用者在快速瀏覽頁面時，所造成的停頓可以獲得改善，
+這時就可以考慮使用這邊所介紹的功能。
 
 ## 參考文獻
 
@@ -471,6 +1084,7 @@ Executors 也提供了其他的 method 來產生不同的 Thread Pool，如：
 - [Java多執行緒程式設計](http://eoffice.im.fju.edu.tw/phpbb/viewtopic.php?t=6280)
 - [Java的執行緒PPT](http://dns2.asia.edu.tw/~wzyang/slides/Java_net/ch16.pdf)
 - [JAVA SCJP6.0教戰手冊 CH13]
+- [(10) Java 多執行緒進階PPT](http://163.21.82.176/java/GOTOP/(10)%20Java%20%E5%A4%9A%E5%9F%B7%E8%A1%8C%E7%B7%92%E9%80%B2%E9%9A%8E.ppt)
 
 
 
