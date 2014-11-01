@@ -21,7 +21,7 @@ Concurrency
 	+ [wait()、notify()](#wait()、notify())
 		* [notify()V.S.notifyAll()](#notify()v.s.notifyall())
 	+ [生產者與消費者](#生產者與消費者)
-	+ [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全（thread-safe）)
+	+ [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全)
 	+ [ThreadLocal類別](#threadlocal類別)
 	+ [concurrent套件新增類別](#concurrent套件新增類別)
 		* [BlockingQueue](#blockingqueue)
@@ -265,7 +265,7 @@ Java 預設所有從 Daemon 執行緒產生的執行緒也是 Daemon 執行緒�
 也應該是為了在背景服務而產生的，所以在產生它的執行緒停止的話，也應該一併跟著停止。
 
 
-### Thread的加入
+### Thread的加入(join)
 
 如果有一個A執行緒正在運行，您希望插入一個B執行緒，並要求 B 執行緒先執行完畢，然後再繼續 A 執行緒的流程，
 可以使用 join() 方法來完成這個需求，當執行緒使用 join() 加入至另一個執行緒時，另一個執行緒會等待這個被加入的執行緒工作完畢，
@@ -800,7 +800,7 @@ public class ProductTest {
 }
 ```
 
-### 容器類的執行緒安全（Thread-safe）
+### 容器類的執行緒安全
 容器類預設沒有考慮執行緒安全問題，您必須自行實作同步以確保共用資料在多執行緒存取下不會出錯，例如若您使用 List 物件時，您可以這樣實作：
 
 ```java
