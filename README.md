@@ -5,15 +5,15 @@ Concurrency
 - [前言](#前言)
 
 - [Thread介紹](#Thread介紹)
-	+ [Thread生命週期](#Thread生命週期)	
-	+ [Tread優先權](#Thread優先權)
-	+ [Thread的使用方法](#Thread的使用方法)
+	+ [Thread生命週期](#thread生命週期)	
+	+ [Tread優先權](#thread優先權)
+	+ [Thread的使用方法](#thread的使用方法)
 		* [繼承Thread類別](#繼承Thread類別)
 		* [實做Runnable介面](#實做Runnable介面)
-	+ [Daemon執行緒](#Daemon執行緒)
-	+ [Thread的加入(Join)](#Thread的加入(Join))
-	+ [Thread的停止](#Thread的停止)
-	+ [ThreadGroup](#ThreadGroup)
+	+ [Daemon執行緒](#daemon執行緒)
+	+ [Thread的加入(Join)](#thread的加入(Join))
+	+ [Thread的停止](#thread的停止)
+	+ [ThreadGroup](#threadGroup)
 	+ [使用Executors](#使用Executors)
 	
 - [同步化議題](#同步化議題)
@@ -22,10 +22,10 @@ Concurrency
 		* [notify()V.S.notifyAll()](#notify()V.S.notifyAll())
 	+ [生產者與消費者](#生產者與消費者)
 	+ [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全（Thread-safe）)
-	+ [ThreadLocal 類別](#ThreadLocal 類別)
-	+ [concurrent 套件新增類別](#concurrent 套件新增類別)
-		* [BlockingQueue](#BlockingQueue)
-		* [Callable 與 Future](#Callable 與 Future)
+	+ [ThreadLocal 類別](#threadLocal 類別)
+	+ [concurrent套件新增類別](#concurrent套件新增類別)
+		* [BlockingQueue](#blockingQueue)
+		* [Callable與Future](#callable與future)
 	
 - [參考文獻](#參考文獻)
 
@@ -965,7 +965,7 @@ class TestThread extends Thread {
 那就不要共用，當然，這種方式所犧牲掉的就是空間，您必須為每一個執行緒保留它們獨立的空間，
 這是一種以空間換取時間與安全性的方法。
 
-### concurrent 套件新增類別
+### concurrent套件新增類別
 
 #### BlockingQueue
 佇列（Queue）是個先前先出（First In First Out, FIFO）的資料結構。在 J2SE 5.0 中新增了 java.util.concurrent.BlockingQueue，
