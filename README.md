@@ -552,9 +552,17 @@ public class PersonalInfoTest {
 thread2 可能此時剛好呼叫 setNameAndID("Shang Hwang", "S.H")，在 name 被設定為 "Shang Hwang" 時，checkNameAndIDEqual() 
 開始執行，「此時 name 等於 "Shang Hwang"，而 id 還是 "J.L"」，所以 checkNameAndIDEqual() 就會傳回 false，結果就顯示了錯誤訊息。
 
-當一個執行緒正在設定物件資料時，另一個執行緒不可以同時進行設定，這時候我們可以使用"synchronized" 關鍵字來進行這個動作。
+當一個執行緒正在設定物件資料時，另一個執行緒不可以同時進行設定，這樣的情況我們稱為race condition。
+為了解決執行緒衝突的問題，幾乎所有並行性機制都會循序化對資源的存取。也就是說同一時間只允許一個任務通過該程式碼的程式碼區段來達成。
+因為這樣的區段會產生互斥(mutual exclusion)的效應，所以這樣的機制有個共通的名稱是mutex。
 
-其中一個方法是把"synchronized" 關鍵字用於方法上，讓方法的範圍（Scope）內都成為同步化區域，例如：
+為了避免資源的衝突，Java以"synchronized" 關鍵字的形式來提供內建的支援。當一個任務想要執行一段受synchronized關鍵字所保護的程式碼時，
+他會先檢察看lock是否可用，接著在取得lock後執行程式碼，最後釋放lock。
+
+要注意的是，當使用到並行性時，將變數宣告為private就變的格外重要，若是將變數宣告為public/protected，物件在外界可以繞過同步方法的控制
+值直接取得並改變他，那麼就會引發衝突。
+
+把"synchronized" 關鍵字用於方法上，讓方法的範圍（Scope）內都成為同步化區域，例如：
 ```java
 public synchronized void setNameAndID(String name, String id) { 
     this.name = name; 
@@ -567,13 +575,13 @@ public synchronized void setNameAndID(String name, String id) {
 }
 ```
 
-這邊要引進物件的鎖定（lock）觀念，要知道每個物件在內部都會有一個鎖定，物件的這個鎖定在平時是沒有作用的。
-被標示為 "synchronized" 的方法會成為同步化區域，當執行緒執行某個物件的同步化區域時，物件的鎖定就有作用了，
-想要執行同步化區域的執行緒，都必須先取得物件的鎖定，執行完同步化區域之後再將鎖定歸還給物件。
+所有物件天生都具備一個lock(也可稱為monitor)，物件的這個鎖定在平時是沒有作用的。
+被標示為 "synchronized" 的方法會成為同步化區域，當執行緒執行某個物件的同步化區域時，物件的lock就有作用了，
+想要執行同步化區域的執行緒，都必須先取得物件的lock，執行完同步化區域之後再將lock歸還給物件。
 
-因為物件的鎖定只有一個，當有個執行緒已取走鎖定而正在執行同步化區域中的程式碼時，
-若有其它執行緒也想執行 "synchronized" 的區域，因為其它執行緒無法取得鎖定，所以只好在物件的鎖定池（Lock Pool）等待，
-直到鎖定被前一個執行緒歸還為止，此時在鎖定池中的執行緒競爭被歸還的物件鎖定，只有取得鎖定的執行緒才能進入 Runnable 狀態，
+因為物件的lock只有一個，當有個執行緒已取走lock而正在執行同步化區域中的程式碼時，
+若有其它執行緒也想執行 "synchronized" 的區域，因為其它執行緒無法取得lock，所以只好在物件的鎖定池（Lock Pool）等待，
+直到lock被前一個執行緒歸還為止，此時在lock pool中的執行緒競爭被歸還的物件lock，只有取得lock的執行緒才能進入 Runnable 狀態，
 等待排班器排班並執行同步化區域。 說明到這邊，可以畫出如下圖的執行緒狀態圖：
 
 ![21-4.png](img/21-4.png)
@@ -581,7 +589,7 @@ public synchronized void setNameAndID(String name, String id) {
 同步化的區域在有一個執行緒佔據時就像個禁區，不允許其它執行緒進入，由於同時間只能有一個執行緒在同步化區域，所以更新共享資料時，
 就有如單執行緒程式在更新資料一樣，藉此保證物件中的資料會與給定的資料同步。
 
-另外，"synchronized" 的設定不只可用於方法上，也可以用於限定某個程式區塊為同步化區域，例如：
+另外，"synchronized" 的設定不只可用於方法上，也可以用於限定某個程式區塊為同步化區域，即為所謂的關鍵區(Critical sections)，例如：
 ```java
 public void setNameAndID(String name, String id) { 
     synchronized(this) {
@@ -596,10 +604,10 @@ public void setNameAndID(String name, String id) {
 }
 ```
 
-這個程式片段的意思就是，在執行緒執行至 "synchronized" 設定的同步化區塊時取得物件鎖定，
+這個程式片段的意思就是，在執行緒執行至 "synchronized" 設定的同步化區塊時取得物件lock，
 這麼一來就沒有其它執行緒可以來執行這個同步化區塊，這個方式可以應用於不想鎖定整個方法區塊，
 而只是想在更新共享資料時再確保物件與資料的同步化，由於同步化區域只是方法中的某個區塊，
-在執行完區塊後執行緒即釋放對物件的鎖定，以便讓其它執行緒有機會競爭物件的鎖定，
+在執行完區塊後執行緒即釋放對物件的lock，以便讓其它執行緒有機會競爭物件的lock，
 相較於將整個方法區塊都設定為同步化區域會比較有效率。
 
 您也可以標示某個物件要求同步化，例如在多執行緒存取同一個 ArrayList 物件時，由於 ArrayList 並沒有實作資料存取時的同步化，
@@ -615,6 +623,162 @@ synchronized(arraylist) {
 
 同步化確保資料的同步，但所犧性的就是在於一個執行緒取得物件鎖定而佔據同步化區塊，而其它執行緒等待它釋放鎖定時的延遲，
 在執行緒少時可能看不出來，但在執行緒多的環境中必然造成一定的效能問題（例如大型網站的多人連線時）。
+
+### 不可切割性automicity與易變性volatility
+
+不可切割性(Automic operation):就是不能被執行序排程器所中斷的操作，一旦操作開始，就一定會再context switch之前執行完畢。
+- 舉例來說,當我們在 Java 中執行宣告 int i = 12 會配置 32 bits 的記憶體空間並將 12 這個值寫到記憶體區塊中,將整數 12 寫入記憶體這個操作是一個 Atomic Operation,不會只做一半就被其他操作中斷,而影響指派(assignment)值的正確性
+
+不可切割性是用在longs和doubles以外的基本型別所施加的基本操作。long和double例外的原因是，Java規格書不禁止這兩種64位元資料的修改過程以兩次32位元的寫入來完成。
+如果在兩次寫入或分批讀取的過程中受到干擾，就可能出現完全超乎意料的數字。
+
+例如A執行緒不斷設定某個double變數num為5、B則不斷地設定為10，
+最後卻有可能因為執行緒彼此干擾寫入結果，使得num讀取出不同於5或10的數字！
+
+所幸，double和long型態的存取，都可以使用volatile修飾，迫使它們不可分割。(要注意的是volatile在Java SE5之前的版本上無法正確運作)
+
+### ThreadLocal類別
+無論如何，要編寫一個多執行緒安全（Thread-safe）的程式總是困難的，為了讓執行緒共用資源，您必須小心的對共用資源進行同步，
+同步帶來一定的效能延遲，而另一方面，在處理同步的時候，又要注意物件的鎖定與釋放，避免產生死結，種種因素都使得編寫多執行緒程式變得困難。
+
+嘗試從另一個角度來思考多執行緒共用資源的問題，既然共用資源這麼困難，那麼就乾脆不要共用，何不為每個執行緒創造一個資源的複本，
+將每一個執行緒存取資料的行為加以隔離，實現的方法就是給予每一個執行緒一個特定空間來保管該執行緒所獨享的資源，
+在 Java 中您可以使用 java.lang.ThreadLocal 來實現這個功能，這個類別是從 JDK 1.2 之後開始提供，不過這邊要先來看看，
+如何自行實現一個簡單的 ThreadLocal 類別。
+
+範例8:
+```java
+import java.util.*;
+
+public class ThreadLocal<T> {
+    // 取得一個同步化的Map物件
+    private Map<Thread, T> storage = 
+             Collections.synchronizedMap(new HashMap<Thread, T>());
+
+    public T get() {
+        // 取得目前執行get()方法的執行緒
+        Thread current = Thread.currentThread();
+        // 根據執行緒取得執行緒自有的資源
+        T t = storage.get(current);
+
+        // 如果還沒有執行緒專用的資源空間
+        // 則建立一個新的空間
+        if(t == null && 
+           !storage.containsKey(current)) {
+            t = initialValue();
+            storage.put(current, t);
+        }
+
+        return t;
+    }
+
+    public void set(T t) {
+        storage.put(Thread.currentThread(), t);
+    }
+
+    public T initialValue() {
+        return null;
+    }
+}
+```
+
+範例中您使用執行緒作為「鍵」（Key），並將所獲得的資源物件放在Map物件中，如果第一次使用get()，您也配置一個空間給執行緒，
+而 initialValue() 可以用來設定什麼樣的初值要先儲存在這個空間中，在範例中先簡單的設定為 null。 
+現在假設有一個原先在單執行緒環境下的資源 SomeResource，現在考慮要在多執行緒環境下使用，
+您不想考慮複雜的執行緒共用互斥問題，此時可以使用 ThreadLocal 類別來使用 SomeResource，例如：
+範例9:
+```java
+public class Resource {
+    private static final 
+       onlyfun.caterpillar.ThreadLocal<SomeResource> threadLocal = 
+            new onlyfun.caterpillar.ThreadLocal<SomeResource>();
+    public static SomeResource getResource() {
+        // 根據目前執行緒取得專屬資源
+        SomeResource resource = threadLocal.get();
+        // 如果沒有取得目前專屬資源
+        if(resource == null) {
+            // 建立一個新的資源並存入ThreadLocal中
+            resource = new SomeResource();
+            threadLocal.set(resource);
+        }
+        return resource;
+    }
+}
+```
+
+以上所實作的 ThreadLocal 類別只是一個簡單的示範，在 Java 中您可以直接使用 java.lang.ThreadLocal，
+在這邊簡單的示範一個記錄（Log）程式，它可以記錄每個執行緒的活動。
+```java
+package DemoThreadLogger;
+
+import java.io.*;
+import java.util.logging.*;                            
+
+class SimpleThreadLogger {
+    private static final 
+        java.lang.ThreadLocal<Logger> threadLocal = 
+                  new java.lang.ThreadLocal<Logger>();
+    // 輸出訊息
+    public static void log(String msg) {
+        getThreadLogger().log(Level.INFO, msg);
+    }
+    // 根據執行緒取得專屬Logger
+    private static Logger getThreadLogger() {
+        Logger logger = threadLocal.get();
+
+        if(logger == null) {
+            try {
+                logger = Logger.getLogger(
+                           Thread.currentThread().getName());
+                // Logger 預設是在主控台輸出
+                // 我們加入一個檔案輸出的Handler
+                // 它會輸出XML的記錄文件
+                logger.addHandler(
+                    new FileHandler(
+                           Thread.currentThread().getName() 
+                           + ".log"));
+            }
+            catch(IOException e) {}
+
+            threadLocal.set(logger);
+        }
+
+        return logger;
+    }
+}
+
+public class LoggerTest {
+    public static void main(String[] args) {
+        new TestThread("thread1").start();
+        new TestThread("thread2").start();
+        new TestThread("thread3").start();
+    }
+}
+
+class TestThread extends Thread {
+    public TestThread(String name) {
+        super(name);
+    }
+
+    public void run() {
+        for(int i = 0; i < 10; i++) {
+            SimpleThreadLogger.log(getName() + 
+                                     ": message " + i);
+            try {
+                Thread.sleep(1000);
+            }
+            catch(Exception e) {
+                SimpleThreadLogger.log(e.toString());
+            }
+        }
+    }
+}
+```
+
+執行之後，您可以在主控台上看到輸出，並可以在同一目錄下找到三個 .log 檔，分別記錄了三個執行緒的活動，
+透過 ThreadLocal，您不用撰寫複雜的執行緒共用互斥邏輯，其意義在於：「有時不共用是好的」。如果共用會產生危險，
+那就不要共用，當然，這種方式所犧牲掉的就是空間，您必須為每一個執行緒保留它們獨立的空間，
+這是一種以空間換取時間與安全性的方法。
 
 ### Thread等待與喚醒
 
@@ -821,149 +985,6 @@ List list = Collections.synchronizedList(new ArrayList());
 在 J2SE 5.0 之後，新增了 java.util.concurrent 這個 package，當中包括了一些確保執行緒安全的 Collection 類，
 例如 ConcurrentHashMap、CopyOnWriteArrayList、CopyOnWriteArraySet 等，這些新增的 Collection 類基本行為與先前介紹的 Map、List、Set 
 等物件是相同的，所不同的是增加了同步化的功能，而且依物件存取時的需求不同而有不同的同步化實作，以同時確保效率與安全性。
-
-### ThreadLocal類別
-無論如何，要編寫一個多執行緒安全（Thread-safe）的程式總是困難的，為了讓執行緒共用資源，您必須小心的對共用資源進行同步，
-同步帶來一定的效能延遲，而另一方面，在處理同步的時候，又要注意物件的鎖定與釋放，避免產生死結，種種因素都使得編寫多執行緒程式變得困難。
-
-嘗試從另一個角度來思考多執行緒共用資源的問題，既然共用資源這麼困難，那麼就乾脆不要共用，何不為每個執行緒創造一個資源的複本，
-將每一個執行緒存取資料的行為加以隔離，實現的方法就是給予每一個執行緒一個特定空間來保管該執行緒所獨享的資源，
-在 Java 中您可以使用 java.lang.ThreadLocal 來實現這個功能，這個類別是從 JDK 1.2 之後開始提供，不過這邊要先來看看，
-如何自行實現一個簡單的 ThreadLocal 類別。
-
-範例8:
-```java
-import java.util.*;
-
-public class ThreadLocal<T> {
-    // 取得一個同步化的Map物件
-    private Map<Thread, T> storage = 
-             Collections.synchronizedMap(new HashMap<Thread, T>());
-
-    public T get() {
-        // 取得目前執行get()方法的執行緒
-        Thread current = Thread.currentThread();
-        // 根據執行緒取得執行緒自有的資源
-        T t = storage.get(current);
-
-        // 如果還沒有執行緒專用的資源空間
-        // 則建立一個新的空間
-        if(t == null && 
-           !storage.containsKey(current)) {
-            t = initialValue();
-            storage.put(current, t);
-        }
-
-        return t;
-    }
-
-    public void set(T t) {
-        storage.put(Thread.currentThread(), t);
-    }
-
-    public T initialValue() {
-        return null;
-    }
-}
-```
-
-範例中您使用執行緒作為「鍵」（Key），並將所獲得的資源物件放在Map物件中，如果第一次使用get()，您也配置一個空間給執行緒，
-而 initialValue() 可以用來設定什麼樣的初值要先儲存在這個空間中，在範例中先簡單的設定為 null。 
-現在假設有一個原先在單執行緒環境下的資源 SomeResource，現在考慮要在多執行緒環境下使用，
-您不想考慮複雜的執行緒共用互斥問題，此時可以使用 ThreadLocal 類別來使用 SomeResource，例如：
-範例9:
-```java
-public class Resource {
-    private static final 
-       onlyfun.caterpillar.ThreadLocal<SomeResource> threadLocal = 
-            new onlyfun.caterpillar.ThreadLocal<SomeResource>();
-    public static SomeResource getResource() {
-        // 根據目前執行緒取得專屬資源
-        SomeResource resource = threadLocal.get();
-        // 如果沒有取得目前專屬資源
-        if(resource == null) {
-            // 建立一個新的資源並存入ThreadLocal中
-            resource = new SomeResource();
-            threadLocal.set(resource);
-        }
-        return resource;
-    }
-}
-```
-
-以上所實作的 ThreadLocal 類別只是一個簡單的示範，在 Java 中您可以直接使用 java.lang.ThreadLocal，
-在這邊簡單的示範一個記錄（Log）程式，它可以記錄每個執行緒的活動。
-```java
-package DemoThreadLogger;
-
-import java.io.*;
-import java.util.logging.*;                            
-
-class SimpleThreadLogger {
-    private static final 
-        java.lang.ThreadLocal<Logger> threadLocal = 
-                  new java.lang.ThreadLocal<Logger>();
-    // 輸出訊息
-    public static void log(String msg) {
-        getThreadLogger().log(Level.INFO, msg);
-    }
-    // 根據執行緒取得專屬Logger
-    private static Logger getThreadLogger() {
-        Logger logger = threadLocal.get();
-
-        if(logger == null) {
-            try {
-                logger = Logger.getLogger(
-                           Thread.currentThread().getName());
-                // Logger 預設是在主控台輸出
-                // 我們加入一個檔案輸出的Handler
-                // 它會輸出XML的記錄文件
-                logger.addHandler(
-                    new FileHandler(
-                           Thread.currentThread().getName() 
-                           + ".log"));
-            }
-            catch(IOException e) {}
-
-            threadLocal.set(logger);
-        }
-
-        return logger;
-    }
-}
-
-public class LoggerTest {
-    public static void main(String[] args) {
-        new TestThread("thread1").start();
-        new TestThread("thread2").start();
-        new TestThread("thread3").start();
-    }
-}
-
-class TestThread extends Thread {
-    public TestThread(String name) {
-        super(name);
-    }
-
-    public void run() {
-        for(int i = 0; i < 10; i++) {
-            SimpleThreadLogger.log(getName() + 
-                                     ": message " + i);
-            try {
-                Thread.sleep(1000);
-            }
-            catch(Exception e) {
-                SimpleThreadLogger.log(e.toString());
-            }
-        }
-    }
-}
-```
-
-執行之後，您可以在主控台上看到輸出，並可以在同一目錄下找到三個 .log 檔，分別記錄了三個執行緒的活動，
-透過 ThreadLocal，您不用撰寫複雜的執行緒共用互斥邏輯，其意義在於：「有時不共用是好的」。如果共用會產生危險，
-那就不要共用，當然，這種方式所犧牲掉的就是空間，您必須為每一個執行緒保留它們獨立的空間，
-這是一種以空間換取時間與安全性的方法。
 
 ### concurrent套件新增類別
 
