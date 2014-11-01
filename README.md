@@ -22,7 +22,7 @@ Concurrency
 		* [notify()V.S.notifyAll()](#notify()v.s.notifyall())
 	+ [生產者與消費者](#生產者與消費者)
 	+ [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全（thread-safe）)
-	+ [ThreadLocal 類別](#threadlocal類別)
+	+ [ThreadLocal類別](#threadlocal類別)
 	+ [concurrent套件新增類別](#concurrent套件新增類別)
 		* [BlockingQueue](#blockingqueue)
 		* [Callable與Future](#callable與future)
@@ -822,7 +822,7 @@ List list = Collections.synchronizedList(new ArrayList());
 例如 ConcurrentHashMap、CopyOnWriteArrayList、CopyOnWriteArraySet 等，這些新增的 Collection 類基本行為與先前介紹的 Map、List、Set 
 等物件是相同的，所不同的是增加了同步化的功能，而且依物件存取時的需求不同而有不同的同步化實作，以同時確保效率與安全性。
 
-### ThreadLocal 類別
+### ThreadLocal類別
 無論如何，要編寫一個多執行緒安全（Thread-safe）的程式總是困難的，為了讓執行緒共用資源，您必須小心的對共用資源進行同步，
 同步帶來一定的效能延遲，而另一方面，在處理同步的時候，又要注意物件的鎖定與釋放，避免產生死結，種種因素都使得編寫多執行緒程式變得困難。
 
@@ -973,7 +973,7 @@ class TestThread extends Thread {
 直到 Queue 有元素時才解除 Block，反過來說，如果 BlockingQueue 滿了，而有個執行緒試圖再把資料填入 Queue 中，
 則該執行緒會被 Block，直到 Queue 中有元素被取走後解除 Block。
 
-#### Callable 與 Future
+#### Callable與Future
 java.util.concurrent.Callable 與 java.util.concurrent.Future 類別可以協助您完成 Future 模式，Future 模式在請求發生時，
 會先產生一個 Future 物件給發出請求的客戶，它的作用就像是代理（Proxy）物件，而同時間，所代理的真正目標物件之生成，
 是由一個新的執行緒持續進行，真正的目標物件生成之後，將之設定至 Future 之中，而當客戶端真正需要目標物件時，
