@@ -11,15 +11,15 @@ Concurrency
 		* [繼承Thread類別](#繼承thread類別)
 		* [實做Runnable介面](#實做runnable介面)
 	+ [Daemon執行緒](#daemon執行緒)
-	+ [Thread的加入(Join)](#thread的加入(join))
+	+ [Thread的加入(Join)](#thread的加入)
 	+ [Thread的停止](#thread的停止)
 	+ [ThreadGroup](#threadgroup)
 	+ [使用Executors](#使用executors)
 	
 - [同步化議題](#同步化議題)
 	+ [同步化](#同步化)
-	+ [wait()、notify()](#wait()、notify())
-		* [notify()V.S.notifyAll()](#notify()v.s.notifyall())
+	+ [wait()、notify()](#wait、notify)
+		* [notify()V.S.notifyAll()](#notifyv.s.notifyall)
 	+ [生產者與消費者](#生產者與消費者)
 	+ [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全)
 	+ [ThreadLocal類別](#threadlocal類別)
@@ -265,7 +265,7 @@ Java 預設所有從 Daemon 執行緒產生的執行緒也是 Daemon 執行緒�
 也應該是為了在背景服務而產生的，所以在產生它的執行緒停止的話，也應該一併跟著停止。
 
 
-### Thread的加入(join)
+### Thread的加入
 
 如果有一個A執行緒正在運行，您希望插入一個B執行緒，並要求 B 執行緒先執行完畢，然後再繼續 A 執行緒的流程，
 可以使用 join() 方法來完成這個需求，當執行緒使用 join() 加入至另一個執行緒時，另一個執行緒會等待這個被加入的執行緒工作完畢，
@@ -617,7 +617,7 @@ synchronized(arraylist) {
 同步化確保資料的同步，但所犧性的就是在於一個執行緒取得物件鎖定而佔據同步化區塊，而其它執行緒等待它釋放鎖定時的延遲，
 在執行緒少時可能看不出來，但在執行緒多的環境中必然造成一定的效能問題（例如大型網站的多人連線時）。
 
-### wait()、notify()
+### wait、notify
 
 死結(Deadlock):正在懸置狀態的thread再也無法改變他的狀態，因為他所要的資源被另一個也再懸置的thread占用，最後造成餓死(starvation)。
 死結在程式執行時期不會出現例外，因為死結在城市中屬於非程式執行時期的錯誤，而這種錯誤系統會以正常情況看待，所以應小心避免。
@@ -641,7 +641,7 @@ wait() 可以指定等待的時間，如果指定時間的話，則時間到之�
 簡單的說，當執行緒呼叫到物件的 wait() 方法時，表示它要先讓出物件的鎖定並等待通知，或是等待一段指定的時間，
 直到被通知或時間到時再與其它執行緒競爭物件的鎖定，如果取得鎖定了，就從等待點開始執行。
 
-#### notify()V.S.notifyAll()
+#### notifyV.S.notifyAll
 notify():
 - 目的：僅喚醒一個正在等待狀態的thread。
 - 缺點：當有多個thread等待被喚醒時，由JVM決定哪一個thread出線，開發人員無法控制，出線的依歸不一定是由priority決定，而是JVM的運算法則為準。
