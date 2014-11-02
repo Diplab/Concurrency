@@ -27,8 +27,11 @@ Concurrency
 		* [死結](#死結)
 	+ [concurrent套件新增類別](#concurrent套件新增類別)
 		* [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全)
+		* [CountDownLatch和CyclicBarrier](#countdownlatch和cyclicbarrier)
 		* [BlockingQueue](#blockingqueue)
 		* [Callable與Future](#callable與future)
+		* [Semaphore](#semaphore)
+		* [Exchanger](#exchanger)
 	
 - [參考文獻](#參考文獻)
 
