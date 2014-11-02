@@ -631,6 +631,37 @@ synchronized(arraylist) {
 同步化確保資料的同步，但所犧性的就是在於一個執行緒取得物件鎖定而佔據同步化區塊，而其它執行緒等待它釋放鎖定時的延遲，
 在執行緒少時可能看不出來，但在執行緒多的環境中必然造成一定的效能問題（例如大型網站的多人連線時）。
 
+可以執行下面這個程式，並比較有synchronized和沒有synchronized的差異。
+```java
+public class SynchronizedCounterDemo {
+   
+    public static class SynchronizedCounter {
+        private static int num = 0;
+        
+        public static synchronized int addNum(int add){ return ++num; }
+        public static synchronized int decNum(int dec){ return --num; }
+                          
+    }//synchronizedObject
+    
+    public static class OnlineOperation implements Runnable{
+       public void run(){
+          long beginTime = System.currentTimeMillis();
+          for( int i = 0 ; i < 1000000 ; i ++ ){
+             SynchronizedCounter.addNum(1);
+          }
+          long endTime = System.currentTimeMillis();
+          System.out.println( ( endTime - beginTime ) + " milliseconds. ");
+       }//run
+    }//Operation
+           
+    public static void main(String[] args) {
+        new Thread(new OnlineOperation() ).start();
+        new Thread(new OnlineOperation() ).start();
+    }//main
+    
+} 
+```
+
 #### 不可切割性automicity與易變性volatility
 
 不可切割性(Automic operation):就是不能被執行序排程器所中斷的操作，一旦操作開始，就一定會再context switch之前執行完畢。
