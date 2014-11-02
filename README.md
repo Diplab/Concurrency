@@ -18,11 +18,15 @@ Concurrency
 	
 - [同步化議題](#同步化議題)
 	+ [同步化](#同步化)
-	+ [Thread等待與喚醒](#thread等待與喚醒)
-	+ [生產者與消費者](#生產者與消費者)
-	+ [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全)
-	+ [ThreadLocal類別](#threadlocal類別)
+		* [不可切割性automicity與易變性volatility](#不可切割性automicity與易變性volatility)
+		* [ThreadLocal類別](#threadlocal類別)
+	+ 終止任務(#終止任務)
+		* [中斷](#中斷)
+		* [Thread等待與喚醒](#thread等待與喚醒)
+		* [生產者與消費者](#生產者與消費者)
+		* [死結](#死結)
 	+ [concurrent套件新增類別](#concurrent套件新增類別)
+		* [容器類的執行緒安全（Thread-safe）](#容器類的執行緒安全)
 		* [BlockingQueue](#blockingqueue)
 		* [Callable與Future](#callable與future)
 	
@@ -624,7 +628,7 @@ synchronized(arraylist) {
 同步化確保資料的同步，但所犧性的就是在於一個執行緒取得物件鎖定而佔據同步化區塊，而其它執行緒等待它釋放鎖定時的延遲，
 在執行緒少時可能看不出來，但在執行緒多的環境中必然造成一定的效能問題（例如大型網站的多人連線時）。
 
-### 不可切割性automicity與易變性volatility
+#### 不可切割性automicity與易變性volatility
 
 不可切割性(Automic operation):就是不能被執行序排程器所中斷的操作，一旦操作開始，就一定會再context switch之前執行完畢。
 - 舉例來說,當我們在 Java 中執行宣告 int i = 12 會配置 32 bits 的記憶體空間並將 12 這個值寫到記憶體區塊中,將整數 12 寫入記憶體這個操作是一個 Atomic Operation,不會只做一半就被其他操作中斷,而影響指派(assignment)值的正確性
@@ -637,7 +641,7 @@ synchronized(arraylist) {
 
 所幸，double和long型態的存取，都可以使用volatile修飾，迫使它們不可分割。(要注意的是volatile在Java SE5之前的版本上無法正確運作)
 
-### ThreadLocal類別
+#### ThreadLocal類別
 無論如何，要編寫一個多執行緒安全（Thread-safe）的程式總是困難的，為了讓執行緒共用資源，您必須小心的對共用資源進行同步，
 同步帶來一定的效能延遲，而另一方面，在處理同步的時候，又要注意物件的鎖定與釋放，避免產生死結，種種因素都使得編寫多執行緒程式變得困難。
 
@@ -780,18 +784,52 @@ class TestThread extends Thread {
 那就不要共用，當然，這種方式所犧牲掉的就是空間，您必須為每一個執行緒保留它們獨立的空間，
 這是一種以空間換取時間與安全性的方法。
 
-### Thread等待與喚醒
+### 終止任務
+前一節我們提到了有幾種狀況會讓執行緒進入 Blocked 狀態：
+- 等待輸入輸出完成
+- 呼叫 sleep() 方法
+- 嘗試取得物件鎖定
+- 呼叫 wait() 方法
 
-死結(Deadlock):正在懸置狀態的thread再也無法改變他的狀態，因為他所要的資源被另一個也再懸置的thread占用，最後造成餓死(starvation)。
-死結在程式執行時期不會出現例外，因為死結在城市中屬於非程式執行時期的錯誤，而這種錯誤系統會以正常情況看待，所以應小心避免。
-因此需要利用wait()、notify()協調。
+有時候你想要終止一個處於blocked狀態的任務，若是你無法停下來等待，你要前往程式碼某個地方可以檢查其狀態，並決定是否強制這個任務脫離blocked狀態。
+
+#### 中斷
+Thread類別提供了interrupt()函式，讓你可以終止blocked任務，此函式會將thread設為interrupted狀態，而被設為interrupted狀態的thread，若已
+處於blocked的情況，或是嘗試進行blocked性質的操作，便會執出一個InterruptedException。
+```java
+public class SomeThread implements Runnable {
+    public void run() { 
+        System.out.println("sleep....至 blocked 狀態"); 
+        try { 
+            Thread.sleep(9999); 
+        } 
+        catch(InterruptedException e) { 
+            System.out.println("I am interrupted...."); 
+        } 
+    } 
+
+    public static void main(String[] args) { 
+        Thread thread = 
+                 new Thread(new SomeThread()); 
+        thread.start(); 
+        thread.interrupt(); 
+    } 
+}
+```
+
+
+
+#### Thread等待與喚醒
+
+前一節我們用lock(mutex)來同步兩個任務的行為，避免一個任務干擾另一個任務的資源，接下來要學習如何讓任務互相合作。
+當任務合作時，主要的問題在任務間交換訊息，因此我們會使用wait()和notify()來安全的實做。
 
 wait()、notify() 與 notifyAll() 是 由Object 類別所提供的方法，您在定義自己的類別時會繼承下來，
 wait()、notify() 與 notifyAll() 都被宣告為 "final"，所以無法重新定義它們，透過 wait() 方法可以要求執行緒進入物件的等待池（Wait Pool），
 或是通知執行緒回到鎖定池的 Blocked 狀態。
 
-您必須在同步化的方法或區塊中呼叫 wait() 方法（也就是執行緒取得鎖定時），當物件的 wait() 方法被調用，目前的執行緒會被放入物件的等待池中，
-執行緒歸還物件的鎖定，其它的執行緒可競爭物件的鎖定；被放在等待池中的執行緒也是處於 Blocked 狀態，所以不參與執行緒的排班。
+您必須在同步化的方法或區塊中呼叫 wait() 方法（也就是執行緒取得lock時），當物件的 wait() 方法被調用，目前的執行緒會被放入物件的等待池中，
+執行緒歸還物件的lock，其它的執行緒可競爭物件的lock；被放在等待池中的執行緒也是處於 Blocked 狀態，所以不參與執行緒的排班。
 
 wait() 可以指定等待的時間，如果指定時間的話，則時間到之後執行緒會再度回到鎖定池的 Blocked 狀態，等待競爭物件鎖定的機會，
 如果指定時間 0 或不指定，則執行緒會持續等待，直到被中斷（interrupt），或是被告知（notify）回到鎖定池的 Blocked 狀態。
@@ -801,8 +839,12 @@ wait() 可以指定等待的時間，如果指定時間的話，則時間到之�
 被通知的執行緒會與其它執行緒共同競爭物件的鎖定；如果您呼叫 notifyAll()，則「所有」在等待池中的執行緒都會被通知回到鎖定池的 Blocked 狀態，
 這些執行緒會與其它執行緒共同競爭物件的鎖定。
 
-簡單的說，當執行緒呼叫到物件的 wait() 方法時，表示它要先讓出物件的鎖定並等待通知，或是等待一段指定的時間，
+簡單的說，當執行緒呼叫到物件的 wait() 方法時，表示它要先讓出物件的lock並等待通知，或是等待一段指定的時間，
 直到被通知或時間到時再與其它執行緒競爭物件的鎖定，如果取得鎖定了，就從等待點開始執行。
+
+wait()和sleep()不同的是：
+- 物件lock在wait()期間會被釋放。
+- 除了經過所指定的時間之外，也可能因為notify()或notifyAll而離開wait()。
 
 notify()&notifyAll()比較：
 
@@ -815,7 +857,7 @@ notifyAll():
 - 缺點：依序喚醒的順序也由JVM決定。
 
 
-### 生產者與消費者
+#### 生產者與消費者
 
 說明 wait()、notify()或notifyAll() 應用最常見的一個例子，就是生產者（Producer）與消費者（Consumer）的例子：
 生產者會將產品交給店員，而消費者從店員處取走產品，店員一次只能持有固定數量產品，如果生產者生產了過多的產品，
@@ -963,8 +1005,21 @@ public class ProductTest {
     }
 }
 ```
+#### 死結
+死結(Deadlock):正在blocked狀態的thread再也無法改變他的狀態，因為他所要的資源被另一個也在blocked狀態的thread占用，最後造成餓死(starvation)。
+死結在程式執行時期不會出現例外，因為死結在程式中屬於非程式執行時期的錯誤，而這種錯誤系統會以正常情況看待，所以應小心避免。
 
-### 容器類的執行緒安全
+死結的四個必要條件：
+- 互斥：某個資源被使用時，他具有獨佔性，其他thread必須等待此資源被釋放，才能競爭此資源。
+- 擁有和等待：一個任務已經持有一個獨佔性資源時，仍須等待另一個任務所擁有的獨佔性資源。
+- 不可奪取：若資源已經被某個任務擁有，其他任務不可強取，必須等資源被正常釋放。
+- 循環等待：一組處理元P0、P1...Pn，其中P0在等待P1所擁有的資源，P1在等待P2所擁有的資源，...，Pn在等待P1所擁有的資源，稱為循環等待。
+死節需要四個必要條件都成立才會產生，所以只需要避免其中一項發生就可以杜絕死結。
+
+### concurrent套件新增類別
+![21-6.png](img/21-6.png)
+
+#### 容器類的執行緒安全
 容器類預設沒有考慮執行緒安全問題，您必須自行實作同步以確保共用資料在多執行緒存取下不會出錯，例如若您使用 List 物件時，您可以這樣實作：
 
 ```java
@@ -985,8 +1040,6 @@ List list = Collections.synchronizedList(new ArrayList());
 在 J2SE 5.0 之後，新增了 java.util.concurrent 這個 package，當中包括了一些確保執行緒安全的 Collection 類，
 例如 ConcurrentHashMap、CopyOnWriteArrayList、CopyOnWriteArraySet 等，這些新增的 Collection 類基本行為與先前介紹的 Map、List、Set 
 等物件是相同的，所不同的是增加了同步化的功能，而且依物件存取時的需求不同而有不同的同步化實作，以同時確保效率與安全性。
-
-### concurrent套件新增類別
 
 #### BlockingQueue
 佇列（Queue）是個先前先出（First In First Out, FIFO）的資料結構。在 J2SE 5.0 中新增了 java.util.concurrent.BlockingQueue，
