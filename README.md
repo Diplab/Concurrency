@@ -1018,9 +1018,13 @@ public class ProductTest {
 死節需要四個必要條件都成立才會產生，所以只需要避免其中一項發生就可以杜絕死結。
 
 ### concurrent套件新增類別
+在 J2SE 5.0 中新增了 java.util.concurrent 套件，當中的類別可以讓您在撰寫多執行緒相關功能時更為方便，下圖是完整的API。
 ![21-6.png](img/21-6.png)
 
 #### 容器類的執行緒安全
+Thread-safe:如果程式撰寫者命令多個執行緒同時執行某個物件封裝的程式碼時，可以不用顧慮任何作業系統的排程方式，
+也不需要額外的同步化處理或是協調執行緒的機制，就能得到正確的執行結果，那麼這個物件就是「執行緒安全」的。
+
 容器類預設沒有考慮執行緒安全問題，您必須自行實作同步以確保共用資料在多執行緒存取下不會出錯，例如若您使用 List 物件時，您可以這樣實作：
 
 ```java
@@ -1042,11 +1046,34 @@ List list = Collections.synchronizedList(new ArrayList());
 例如 ConcurrentHashMap、CopyOnWriteArrayList、CopyOnWriteArraySet 等，這些新增的 Collection 類基本行為與先前介紹的 Map、List、Set 
 等物件是相同的，所不同的是增加了同步化的功能，而且依物件存取時的需求不同而有不同的同步化實作，以同時確保效率與安全性。
 
+#### CountDownLatch和CyclicBarrier
+CountDownLatch用來同步一個或多個任務，強制他們持續等待，直到其他任務完成一組完整的操作。
+使用方法如下：
+```java
+  static final int SIZE = 100;
+  public static void main(String[] args) throws Exception {
+	// ...
+    CountDownLatch latch = new CountDownLatch(SIZE);
+	// ...
+  }
+```
+給定CountDownLatch object初始化的計數器值，所有於該物件上呼叫await()的任務都會暫停執行，直到計數器之值遞減至零為止。
+其他的任務可能在完成它的工作時，呼叫該物件的countDown()以遞減計數器之值。CountDownLatch的設計是一次使用性的，計數器無法被重設。
+
+CyclicBarrier所適用的情境是，你想要建立一群並行運作的任務，接著等待它們都完成了才進行下一階段(有點像是join())。
+它會讓所有並行的任務在關卡前面整隊對齊，所以可以獲得往前的一致性。它和和CountDownLatch很相似，但有兩點不同：
+- CountDownLatch是處理一次性事件，CyclicBarrier可以一而在再而三的被重新使用。
+- CyclicBarrier可以給定一個關卡動作(barrier action)，它是個Runnable，當計數器歸零時，便會被自動執行。
+
 #### BlockingQueue
 佇列（Queue）是個先前先出（First In First Out, FIFO）的資料結構。在 J2SE 5.0 中新增了 java.util.concurrent.BlockingQueue，
 在多執行緒的情況下，如果 BlockingQueue 的內容為空，而有個執行緒試圖從 Queue 中取出元素，則該執行緒會被 Block，
 直到 Queue 有元素時才解除 Block，反過來說，如果 BlockingQueue 滿了，而有個執行緒試圖再把資料填入 Queue 中，
 則該執行緒會被 Block，直到 Queue 中有元素被取走後解除 Block。
+
+在 java.util.concurrent 下提供幾種不同的 BlockingQueue，ArrayBlockingQueue 要指定容量大小來建構。LinkedBlockingQueue 預設沒有容量上限，
+但也可以指定容量上限。PriorityBlockingQueue 嚴格來說不是 Queue，因為它是根據優先權（Priority）來移除元素。
+
 
 #### Callable與Future
 java.util.concurrent.Callable 與 java.util.concurrent.Future 類別可以協助您完成 Future 模式，Future 模式在請求發生時，
@@ -1156,6 +1183,16 @@ java.util.concurrent.FutureTask 是個代理，真正執行找質數的是 Calla
 所以我們希望在文件開啟之後，仍有一個背景作業持續載入圖片，如此使用者在快速瀏覽頁面時，所造成的停頓可以獲得改善，
 這時就可以考慮使用這邊所介紹的功能。
 
+#### Semaphore
+標準的lock同一時間只允許一個任物存取同一資源，而計數號誌(counting semaphore)則允許n個任務同一時間存取同一資源。
+
+Semaphore可以控制某個資源可被同時訪問的個數，acquire()獲取一個許可，如果沒有就等待，而release()釋放一個許可。比如在Windows下可以設置共享文件的最大客戶端訪問個數。.比較特別的是 Semaphore 在初始的時候可以指定"公不公平", 
+如果給 true 表示要公平就會讓呼叫 acquire 的 thread 排隊, 不會有 thread 一直取不到資源的現象.
+
+#### Exchanger
+Exchanger是個置換兩任務中物件的關卡。當任務進入關卡時會有個物件，而當它們離開時，它們所持有的，正是之前被另一個任務所持有的物件。
+當某個任務會產生成本較高的物件，而另一個任務正打算消費這些物件時，通常便會使用Exchanger。
+
 ## 參考文獻
 
 - [JavaSE6Tutorial-CH15](https://github.com/JustinSDK/JavaSE6Tutorial/blob/master/docs/CH15.md#%E7%AC%AC-15-%E7%AB%A0-%E5%9F%B7%E8%A1%8C%E7%B7%92thread)
@@ -1164,7 +1201,7 @@ java.util.concurrent.FutureTask 是個代理，真正執行找質數的是 Calla
 - [Java的執行緒PPT](http://dns2.asia.edu.tw/~wzyang/slides/Java_net/ch16.pdf)
 - [JAVA SCJP6.0教戰手冊 CH13]
 - [(10) Java 多執行緒進階PPT](http://163.21.82.176/java/GOTOP/(10)%20Java%20%E5%A4%9A%E5%9F%B7%E8%A1%8C%E7%B7%92%E9%80%B2%E9%9A%8E.ppt)
-
+- [深入淺出Java Concurrency](http://www.blogjava.net/xylz/archive/2010/07/08/325587.html)
 
 
 
