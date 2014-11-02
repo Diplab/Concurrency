@@ -684,136 +684,26 @@ public class SynchronizedCounterDemo {
 在 Java 中您可以使用 java.lang.ThreadLocal 來實現這個功能，這個類別是從 JDK 1.2 之後開始提供，不過這邊要先來看看，
 如何自行實現一個簡單的 ThreadLocal 類別。
 
-範例8:
+ThreadLocal的目的 : 把變數存在currentThread中, 讓每個執行中的Thread都有自己的一份Copy, 而且彼此之間不會互相影響.
+
+實作概念：
 ```java
-import java.util.*;
+public class ThreadLocalConcept{
+	private Map<Thread,Object> localMap = Collections.synchronizedMap(new HashMap<Thread,Object>());
 
-public class ThreadLocal<T> {
-    // 取得一個同步化的Map物件
-    private Map<Thread, T> storage = 
-             Collections.synchronizedMap(new HashMap<Thread, T>());
+	public void set(Object obj){
+		this.localMap.put(Thread.currentThread(), obj);
+	}
 
-    public T get() {
-        // 取得目前執行get()方法的執行緒
-        Thread current = Thread.currentThread();
-        // 根據執行緒取得執行緒自有的資源
-        T t = storage.get(current);
+	public Object get(){
+		this.localMap.get(Thread.currentThread());
+	}
+} 
 
-        // 如果還沒有執行緒專用的資源空間
-        // 則建立一個新的空間
-        if(t == null && 
-           !storage.containsKey(current)) {
-            t = initialValue();
-            storage.put(current, t);
-        }
-
-        return t;
-    }
-
-    public void set(T t) {
-        storage.put(Thread.currentThread(), t);
-    }
-
-    public T initialValue() {
-        return null;
-    }
-}
 ```
 
-範例中您使用執行緒作為「鍵」（Key），並將所獲得的資源物件放在Map物件中，如果第一次使用get()，您也配置一個空間給執行緒，
-而 initialValue() 可以用來設定什麼樣的初值要先儲存在這個空間中，在範例中先簡單的設定為 null。 
-現在假設有一個原先在單執行緒環境下的資源 SomeResource，現在考慮要在多執行緒環境下使用，
-您不想考慮複雜的執行緒共用互斥問題，此時可以使用 ThreadLocal 類別來使用 SomeResource，例如：
-範例9:
-```java
-public class Resource {
-    private static final 
-       onlyfun.caterpillar.ThreadLocal<SomeResource> threadLocal = 
-            new onlyfun.caterpillar.ThreadLocal<SomeResource>();
-    public static SomeResource getResource() {
-        // 根據目前執行緒取得專屬資源
-        SomeResource resource = threadLocal.get();
-        // 如果沒有取得目前專屬資源
-        if(resource == null) {
-            // 建立一個新的資源並存入ThreadLocal中
-            resource = new SomeResource();
-            threadLocal.set(resource);
-        }
-        return resource;
-    }
-}
-```
+基本上就是這個localMap會放著各個Thread對應的變數, 因此在不同的Thread中呼叫到的Value都會是獨立的.
 
-以上所實作的 ThreadLocal 類別只是一個簡單的示範，在 Java 中您可以直接使用 java.lang.ThreadLocal，
-在這邊簡單的示範一個記錄（Log）程式，它可以記錄每個執行緒的活動。
-```java
-package DemoThreadLogger;
-
-import java.io.*;
-import java.util.logging.*;                            
-
-class SimpleThreadLogger {
-    private static final 
-        java.lang.ThreadLocal<Logger> threadLocal = 
-                  new java.lang.ThreadLocal<Logger>();
-    // 輸出訊息
-    public static void log(String msg) {
-        getThreadLogger().log(Level.INFO, msg);
-    }
-    // 根據執行緒取得專屬Logger
-    private static Logger getThreadLogger() {
-        Logger logger = threadLocal.get();
-
-        if(logger == null) {
-            try {
-                logger = Logger.getLogger(
-                           Thread.currentThread().getName());
-                // Logger 預設是在主控台輸出
-                // 我們加入一個檔案輸出的Handler
-                // 它會輸出XML的記錄文件
-                logger.addHandler(
-                    new FileHandler(
-                           Thread.currentThread().getName() 
-                           + ".log"));
-            }
-            catch(IOException e) {}
-
-            threadLocal.set(logger);
-        }
-
-        return logger;
-    }
-}
-
-public class LoggerTest {
-    public static void main(String[] args) {
-        new TestThread("thread1").start();
-        new TestThread("thread2").start();
-        new TestThread("thread3").start();
-    }
-}
-
-class TestThread extends Thread {
-    public TestThread(String name) {
-        super(name);
-    }
-
-    public void run() {
-        for(int i = 0; i < 10; i++) {
-            SimpleThreadLogger.log(getName() + 
-                                     ": message " + i);
-            try {
-                Thread.sleep(1000);
-            }
-            catch(Exception e) {
-                SimpleThreadLogger.log(e.toString());
-            }
-        }
-    }
-}
-```
-
-執行之後，您可以在主控台上看到輸出，並可以在同一目錄下找到三個 .log 檔，分別記錄了三個執行緒的活動，
 透過 ThreadLocal，您不用撰寫複雜的執行緒共用互斥邏輯，其意義在於：「有時不共用是好的」。如果共用會產生危險，
 那就不要共用，當然，這種方式所犧牲掉的就是空間，您必須為每一個執行緒保留它們獨立的空間，
 這是一種以空間換取時間與安全性的方法。
